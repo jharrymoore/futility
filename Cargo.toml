@@ -1,0 +1,11 @@
+[package]
+name = "futility"
+version = "0.1.0"
+authors = ["jharrymoore <jharrymoore@btinternet.com>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.4.8", features = ["derive"] }
+crossterm = "0.26.1"
+ratatui = "0.24.0"
