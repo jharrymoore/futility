@@ -1,4 +1,4 @@
-use crate::app::StatefulList;
+use crate::app::{StatefulList, StatefulTable};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SlurmJob {
@@ -42,7 +42,26 @@ impl SlurmJob {
     }
 }
 
-pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulList<SlurmJob> {
+impl SlurmJob {
+    pub fn cancel(&self) {
+        let cmd = format!("scancel {}", self.job_id);
+        let output = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(cmd)
+            .output()
+            .expect("failed to execute process");
+    }
+    pub fn restart(&self) {
+        let cmd = format!("scontrol requeue {}", self.job_id);
+        let output = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(cmd)
+            .output()
+            .expect("failed to execute process");
+    }
+}
+
+pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulTable<SlurmJob> {
     let cmd = format!("sacct -u {} -S $(date -d '{} hours ago' +\"%Y-%m-%dT%H:%M:%S\") --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason --parsable2 ", user, time_period);
 
     let output = std::process::Command::new("bash")
@@ -51,12 +70,16 @@ pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulList<SlurmJob
         .output()
         .expect("failed to execute process");
 
+    let exclude_strings = vec!["batch", "extern", ".0"];
+
     // work on the string, parse into a SlurmJob struct
     let output = String::from_utf8_lossy(&output.stdout);
     let mut job_list: Vec<SlurmJob> = Vec::new();
     output.lines().skip(1).for_each(|line| {
         let parts = line.split('|').collect::<Vec<&str>>();
-        dbg!(&parts);
+        if let Some(_) = exclude_strings.iter().find(|&&s| parts[0].contains(s)) {
+            return;
+        }
         // TODO: bug - array jobs won't parse into a u32, they are jobid.0 etc
         let job_id = parts[0].to_string();
         let job_name = parts[1].to_string();
@@ -72,7 +95,7 @@ pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulList<SlurmJob
             job_id, job_name, partition, account, state, start, submit, end, reason, work_dir,
         ));
     });
-    StatefulList::with_items(job_list)
+    StatefulTable::with_items(job_list)
 }
 
 #[cfg(test)]

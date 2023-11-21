@@ -1,7 +1,10 @@
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Margin},
     style::{Color, Modifier, Style},
-    widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Row, Table},
+    widgets::{
+        Block, BorderType, Borders, List, ListItem, Paragraph, Row, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, StatefulWidget, Table,
+    },
     Frame,
 };
 
@@ -11,12 +14,12 @@ use crate::app::App;
 pub fn render(app: &mut App, frame: &mut Frame) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+        .constraints([
+            Constraint::Percentage(20),
+            Constraint::Percentage(65),
+            Constraint::Percentage(15),
+        ])
         .split(frame.size());
-    let subchunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(25), Constraint::Percentage(25)])
-        .split(chunks[1]);
 
     // This is where you add new widgets.
     // See the following resources:
@@ -25,10 +28,9 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.render_widget(
         Paragraph::new(format!(
             "Futility: A terminal program to monitor your SLURM jobs.\n\
-                Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
-                Press left and right to increment and decrement the counter respectively.\n\
-                Found information on: {} jobs",
-            app.slurm_jobs.len()
+                Found information on: {} jobs, selected_index: {}",
+            app.slurm_jobs.len(),
+            app.selected_index
         ))
         .block(
             Block::default()
@@ -37,7 +39,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
         )
-        .style(Style::default().fg(Color::Cyan).bg(Color::Black))
+        // .style(Style::default().fg(Color::Cyan).bg(Color::Black))
         .alignment(Alignment::Center),
         chunks[0],
     );
@@ -47,19 +49,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .iter()
         .map(|job| ListItem::new(job.job_id.clone()))
         .collect();
-    let list = List::new(jobs)
-        .block(
-            Block::default()
-                .title("SLURM Job List")
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded),
-        )
-        .style(Style::default().fg(Color::Cyan).bg(Color::Black))
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-        .highlight_symbol(">>");
-
-    frame.render_stateful_widget(list, subchunks[0], &mut app.slurm_jobs.state);
 
     let mut jobs_as_rows = Vec::new();
     for job in &app.slurm_jobs.items {
@@ -94,13 +83,43 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             .style(Style::default().fg(Color::Yellow))
             .bottom_margin(1),
         )
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .highlight_symbol(">>")
         .widths(&[
             Constraint::Percentage(10),
+            Constraint::Percentage(5),
             Constraint::Percentage(10),
             Constraint::Percentage(10),
-            Constraint::Percentage(10),
+            Constraint::Percentage(40),
             Constraint::Percentage(10),
         ]);
 
-    frame.render_widget(table, subchunks[1]);
+    frame.render_stateful_widget(table, chunks[1], &mut app.slurm_jobs.state);
+
+    let mut scrollbar_state = ScrollbarState::default()
+        .content_length(app.slurm_jobs.len())
+        .position(app.selected_index);
+
+    let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+        .begin_symbol(Some("↑"))
+        .end_symbol(Some("↓"))
+        .thumb_symbol("-");
+
+    // frame.render_widget(scrollbar, subchunks[1]);
+    frame.render_stateful_widget(
+        scrollbar,
+        chunks[1].inner(&Margin {
+            vertical: 0,
+            horizontal: 1,
+        }), // using a inner vertical margin of 1 unit makes the scrollbar inside the block
+        &mut scrollbar_state,
+    );
+
+    let bottom_bar = Block::default()
+        .title("Commands")
+        .title_alignment(Alignment::Center)
+        .borders(Borders::TOP)
+        .border_type(BorderType::Rounded);
+
+    frame.render_widget(bottom_bar, chunks[2]);
 }

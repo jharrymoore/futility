@@ -61,6 +61,62 @@ impl IntoIterator for StatefulList<SlurmJob> {
     }
 }
 
+#[derive(Debug)]
+pub struct StatefulTable<T> {
+    pub state: TableState,
+    pub items: Vec<T>,
+}
+
+impl<T> StatefulTable<T> {
+    pub fn with_items(items: Vec<T>) -> StatefulTable<T> {
+        StatefulTable {
+            state: TableState::default(),
+            items,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    self.items.len() - 1
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    0
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+}
+
+impl IntoIterator for StatefulTable<SlurmJob> {
+    type Item = SlurmJob;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
 /// Application.
 #[derive(Debug)]
 pub struct App {
@@ -68,7 +124,8 @@ pub struct App {
     pub user: String,
     pub time_period: usize,
     pub running: bool,
-    pub slurm_jobs: StatefulList<SlurmJob>,
+    pub slurm_jobs: StatefulTable<SlurmJob>,
+    pub selected_index: usize,
 }
 
 impl App {
@@ -81,6 +138,7 @@ impl App {
             time_period,
             running,
             slurm_jobs,
+            selected_index: 0,
         }
     }
 
@@ -98,9 +156,21 @@ impl App {
 
     pub fn on_up(&mut self) {
         self.slurm_jobs.previous();
+        if self.selected_index > 0 {
+            self.selected_index = self.selected_index.saturating_sub(1);
+        }
     }
 
     pub fn on_down(&mut self) {
         self.slurm_jobs.next();
+        if self.selected_index < self.slurm_jobs.len() - 1 {
+            self.selected_index = self.selected_index.saturating_add(1);
+        }
+    }
+    pub fn on_c(&mut self) {
+        // cancel the currently selected job
+        let job = &self.slurm_jobs.items[self.selected_index];
+
+        job.cancel_job();
     }
 }
