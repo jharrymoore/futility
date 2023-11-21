@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin},
     style::{self, Color, Modifier, Style},
@@ -79,12 +81,28 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let red_style = Style::default().fg(Color::LightRed);
     let orange_style = Style::default().fg(Color::Yellow);
 
+    let job_status_map = HashMap::from([
+        ("F", red_style),
+        ("PD", orange_style),
+        ("R", blue_style),
+        ("CD", light_green_style),
+        ("CA", orange_style),
+        ("TO", orange_style),
+        ("PR", orange_style),
+        ("NF", orange_style),
+        ("RV", orange_style),
+        ("S", orange_style),
+    ]);
+
     let mut jobs_as_rows = Vec::new();
     for job in &app.slurm_jobs.items {
+        let status_style = job_status_map
+            .get(&job.state.as_str())
+            .unwrap_or(&red_style);
         let row = Row::new(vec![
             Span::styled(job.job_id.clone(), blue_style),
-            Span::styled(job.state.clone(), red_style),
-            Span::styled(job.job_name.clone(), light_green_style),
+            Span::styled(job.state.clone(), *status_style),
+            Span::styled(job.job_name.clone(), Style::default()),
         ]);
         jobs_as_rows.push(row);
     }
@@ -116,24 +134,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     frame.render_stateful_widget(table, subchunks[0], &mut app.slurm_jobs.state);
 
-    let mut scrollbar_state_jobs = ScrollbarState::default()
-        .content_length(app.slurm_jobs.len())
-        .position(app.selected_index);
-
-    let scrollbar_jobs = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-        .begin_symbol(Some("↑"))
-        .end_symbol(Some("↓"))
-        .thumb_symbol("-");
-
-    // frame.render_widget(scrollbar, subchunks[1]);
-    frame.render_stateful_widget(
-        scrollbar_jobs,
-        subchunks[0].inner(&Margin {
-            vertical: 0,
-            horizontal: 1,
-        }), // using a inner vertical margin of 1 unit makes the scrollbar inside the block
-        &mut scrollbar_state_jobs,
-    );
     let help_options = vec![
         ("q", "quit"),
         ("⏶/⏷", "navigate"),
@@ -201,17 +201,5 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .end_symbol(Some("↓"))
         .thumb_symbol("-");
 
-    let mut scrollbar_state_output = ScrollbarState::default()
-        .content_length(app.slurm_jobs.len())
-        .position(app.selected_index);
-
-    frame.render_stateful_widget(
-        output_scrollbar,
-        rhs_subchunks[1].inner(&Margin {
-            vertical: 0,
-            horizontal: 1,
-        }), // using a inner vertical margin of 1 unit makes the scrollbar inside the block
-        &mut scrollbar_state_output,
-    );
     frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.output_file.state);
 }
