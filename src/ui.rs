@@ -13,6 +13,11 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
         .split(frame.size());
+    let subchunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(25), Constraint::Percentage(25)])
+        .split(chunks[1]);
+
     // This is where you add new widgets.
     // See the following resources:
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
@@ -27,7 +32,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ))
         .block(
             Block::default()
-                .title("Template")
+                .title("Futil")
                 .title_alignment(Alignment::Center)
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
@@ -36,18 +41,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .alignment(Alignment::Center),
         chunks[0],
     );
-    // let mut jobs_as_rows = Vec::new();
-    // for job in app.slurm_jobs {
-    //     let row = Row::new(vec![
-    //         job.job_id.clone(),
-    //         job.partition.clone(),
-    //         job.job_name.clone(),
-    //         job.start.clone(),
-    //         job.work_dir.clone(),
-    //         job.state.clone(),
-    //     ]);
-    //     jobs_as_rows.push(row);
-    // }
     let jobs: Vec<ListItem> = app
         .slurm_jobs
         .items
@@ -66,5 +59,48 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .highlight_style(Style::default().add_modifier(Modifier::BOLD))
         .highlight_symbol(">>");
 
-    frame.render_stateful_widget(list, chunks[1], &mut app.slurm_jobs.state)
+    frame.render_stateful_widget(list, subchunks[0], &mut app.slurm_jobs.state);
+
+    let mut jobs_as_rows = Vec::new();
+    for job in &app.slurm_jobs.items {
+        let row = Row::new(vec![
+            job.job_id.clone(),
+            job.partition.clone(),
+            job.job_name.clone(),
+            job.start.clone(),
+            job.work_dir.clone(),
+            job.state.clone(),
+        ]);
+        jobs_as_rows.push(row);
+    }
+
+    let table = Table::new(jobs_as_rows)
+        .block(
+            Block::default()
+                .title("SLURM Job List")
+                .title_alignment(Alignment::Center)
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded),
+        )
+        .header(
+            Row::new(vec![
+                "Job ID",
+                "Partition",
+                "Job Name",
+                "Start",
+                "Work Dir",
+                "State",
+            ])
+            .style(Style::default().fg(Color::Yellow))
+            .bottom_margin(1),
+        )
+        .widths(&[
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+        ]);
+
+    frame.render_widget(table, subchunks[1]);
 }
