@@ -20,10 +20,21 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.refresh_slurm_jobs();
         }
         KeyCode::Down => {
-            app.on_down();
+            if key_event.modifiers == KeyModifiers::SHIFT {
+                app.on_shift_down();
+            } else {
+                app.on_down();
+            }
         }
         KeyCode::Up => {
-            app.on_up();
+            if key_event.modifiers == KeyModifiers::SHIFT {
+                app.on_shift_up();
+            } else {
+                app.on_up();
+            }
+        }
+        KeyCode::Tab => {
+            app.toggle_focus();
         }
         _ => {}
     }

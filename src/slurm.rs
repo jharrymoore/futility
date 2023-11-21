@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::app::{StatefulList, StatefulTable};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -64,6 +66,18 @@ impl SlurmJob {
 pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulTable<SlurmJob> {
     let cmd = format!("sacct -u {} -S $(date -d '{} hours ago' +\"%Y-%m-%dT%H:%M:%S\") --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason --parsable2 ", user, time_period);
 
+    let status_map = HashMap::from([
+        ("PENDING", "PD"),
+        ("RUNNING", "R"),
+        ("COMPLETED", "CD"),
+        ("FAILED", "F"),
+        ("CANCELLED", "CA"),
+        ("TIMEOUT", "TO"),
+        ("PREEMPTED", "PR"),
+        ("NODE_FAIL", "NF"),
+        ("REVOKED", "RV"),
+        ("SUSPENDED", "S"),
+    ]);
     let output = std::process::Command::new("bash")
         .arg("-c")
         .arg(cmd)
@@ -88,7 +102,10 @@ pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulTable<SlurmJo
         let submit = parts[4].to_string(); // parse this to datetime
         let start = parts[5].to_string();
         let end = parts[6].to_string();
-        let state = parts[7].to_string();
+        let state = status_map
+            .get(parts[7].split_whitespace().nth(0).unwrap())
+            .unwrap_or(&parts[7])
+            .to_string();
         let work_dir = parts[8].to_string();
         let reason = parts[9].to_string();
         job_list.push(SlurmJob::new(

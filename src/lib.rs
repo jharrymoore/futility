@@ -13,5 +13,6 @@ pub mod tui;
 /// Event handler.
 pub mod handler;
 
-
 pub mod slurm;
+
+pub mod file_watcher;
