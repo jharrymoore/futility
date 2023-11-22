@@ -52,6 +52,7 @@ impl SlurmJob {
             .arg(cmd)
             .output()
             .expect("failed to execute process");
+        
     }
     pub fn restart(&self) {
         let cmd = format!("scontrol requeue {}", self.job_id);
@@ -115,18 +116,3 @@ pub fn refresh_job_list(user: &str, time_period: usize) -> StatefulTable<SlurmJo
     StatefulTable::with_items(job_list)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std;
-
-    #[test]
-    fn test_get_job_list() {
-        let user = std::env::var("USER").unwrap();
-        let time_period = 24;
-
-        let job_list = get_job_lists(&user, time_period);
-
-        dbg!(&job_list);
-    }
-}

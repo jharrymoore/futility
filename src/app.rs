@@ -269,6 +269,58 @@ impl App {
     pub fn on_shift_up(&mut self) {
         match self.focus {
             Focus::JobList => {
+                // move up 10 lines
+                self.slurm_jobs.state.select(Some(
+                    self.slurm_jobs
+                        .state
+                        .selected()
+                        .unwrap_or(0)
+                        .saturating_sub(10),
+                ));
+                self.selected_index = self.selected_index.saturating_sub(10);
+            }
+            Focus::Output => {
+                // move up 10 lines
+                self.output_file.state.select(Some(
+                    self.output_file
+                        .state
+                        .selected()
+                        .unwrap_or(0)
+                        .saturating_sub(10),
+                ));
+                self.output_line_index = self.output_line_index.saturating_sub(10);
+            }
+        }
+    }
+
+    pub fn on_shift_down(&mut self) {
+        match self.focus {
+            Focus::JobList => {
+                // step down by at most 5 jobs
+                if self.selected_index < self.slurm_jobs.len() - 5 {
+                    self.selected_index = self.selected_index.saturating_add(5);
+                } else {
+                    self.selected_index = self.slurm_jobs.len() - 1;
+                }
+                self.slurm_jobs.state.select(Some(self.selected_index));
+            }
+            Focus::Output => {
+                if self.output_line_index < self.output_file.len() - 5 {
+                    self.output_line_index = self.output_line_index.saturating_add(5);
+                } else {
+                    self.output_line_index = self.output_file.len() - 1;
+                }
+                // select the new line
+                self.output_file
+                    .state
+                    .select(Some(self.output_line_index));
+            }
+        }
+    }
+
+    pub fn on_t(&mut self) {
+        match self.focus {
+            Focus::JobList => {
                 self.selected_index = 0;
                 self.get_output_file_contents();
                 self.slurm_jobs.top()
@@ -280,7 +332,7 @@ impl App {
         }
     }
 
-    pub fn on_shift_down(&mut self) {
+    pub fn on_b(&mut self) {
         match self.focus {
             Focus::JobList => {
                 self.selected_index = self.slurm_jobs.len() - 1;
@@ -290,7 +342,6 @@ impl App {
             Focus::Output => {
                 self.output_line_index = self.output_file.len() - 1;
                 self.output_file.bottom();
-
             }
         }
     }

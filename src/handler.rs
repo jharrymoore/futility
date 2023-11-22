@@ -12,6 +12,8 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('c') | KeyCode::Char('C') => {
             if key_event.modifiers == KeyModifiers::CONTROL {
                 app.quit();
+            } else {
+                app.on_c();
             }
         }
         // Counter handlers
@@ -25,6 +27,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             } else {
                 app.on_down();
             }
+        }
+        KeyCode::Char('t') => {
+            app.on_t();
+        }
+        KeyCode::Char('b') => {
+            app.on_b();
         }
         KeyCode::Up => {
             if key_event.modifiers == KeyModifiers::SHIFT {

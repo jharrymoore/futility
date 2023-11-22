@@ -59,7 +59,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
         )
-        .widths(&[Constraint::Percentage(5), Constraint::Percentage(95)]);
+        .widths(&[Constraint::Length(10), Constraint::Percentage(95)]);
 
     frame.render_widget(details, rhs_subchunks[0]);
 
@@ -80,6 +80,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let light_green_style = Style::default().fg(Color::LightGreen);
     let red_style = Style::default().fg(Color::LightRed);
     let orange_style = Style::default().fg(Color::Yellow);
+    let white_style = Style::default().fg(Color::White);
 
     let job_status_map = HashMap::from([
         ("F", red_style),
@@ -102,13 +103,19 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         let row = Row::new(vec![
             Span::styled(job.job_id.clone(), blue_style),
             Span::styled(job.state.clone(), *status_style),
-            Span::styled(job.job_name.clone(), Style::default()),
+            Span::styled(job.job_name.clone(), white_style),
         ]);
         jobs_as_rows.push(row);
     }
     let (job_style, output_style) = match app.focus {
-        Focus::JobList => (Style::default().fg(Color::Green), Style::default()),
-        Focus::Output => (Style::default(), Style::default().fg(Color::Green)),
+        Focus::JobList => (
+            Style::default().fg(Color::Green),
+            Style::default().fg(Color::White),
+        ),
+        Focus::Output => (
+            Style::default().fg(Color::White),
+            Style::default().fg(Color::Green),
+        ),
     };
 
     let table = Table::new(jobs_as_rows)
@@ -137,11 +144,12 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let help_options = vec![
         ("q", "quit"),
         ("⏶/⏷", "navigate"),
-        ("shift+up/shift+down", "top/bottom"),
-        ("ctrl+up/ctrl+down", "fast scroll"),
+        ("t/b", "top/bottom"),
+        ("shift+up/shift+down", "fast scroll"),
         ("esc", "cancel"),
         ("enter", "confirm"),
         ("c", "cancel job"),
+        ("r", "refresh job list"),
         // ("o", "toggle stdout/stderr"),
     ];
 
@@ -168,15 +176,13 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     );
     frame.render_widget(help, chunks[1]);
 
-    // let output = Paragraph::new(Text::raw(app.output_file.join("\n")))
-    //     .    //     .wrap(Wrap { trim: true });
 
     let output = Table::new(
         app.output_file
             .items
             .iter()
             .fold(Vec::new(), |mut acc, line| {
-                acc.push(Row::new(vec![Span::raw(line)]));
+                acc.push(Row::new(vec![Span::styled(line, white_style)]));
                 acc
             }),
     )
@@ -195,11 +201,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             .fg(Color::Black)
             .add_modifier(Modifier::BOLD),
     );
-
-    let output_scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-        .begin_symbol(Some("↑"))
-        .end_symbol(Some("↓"))
-        .thumb_symbol("-");
 
     frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.output_file.state);
 }
