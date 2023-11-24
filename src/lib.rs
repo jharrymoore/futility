@@ -1,3 +1,7 @@
+use app::StatefulTable;
+use crossterm::event::KeyEvent;
+use slurm::SlurmJob;
+
 /// Application.
 pub mod app;
 
@@ -16,3 +20,5 @@ pub mod handler;
 pub mod slurm;
 
 pub mod file_watcher;
+pub mod job_watcher;
+

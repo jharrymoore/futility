@@ -5,7 +5,7 @@ use ratatui::{
     style::{self, Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{
-        Block, BorderType, Borders, List, ListItem, Paragraph, Row, Scrollbar,
+        Block, BorderType, Borders, Gauge, List, ListItem, Paragraph, Row, Scrollbar,
         ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, Wrap,
     },
     Frame,
@@ -22,12 +22,16 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let subchunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(chunks[0]);
 
     let rhs_subchunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(7), Constraint::Percentage(60)])
+        .constraints([
+            Constraint::Length(7),
+            Constraint::Length(3),
+            Constraint::Percentage(60),
+        ])
         .split(subchunks[1]);
 
     // construct detailed job info
@@ -50,6 +54,25 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         "WORK DIR".to_string(),
         selected_job.work_dir.to_owned(),
     ]));
+
+    let active_job_percent =
+        app.slurm_jobs.items[app.selected_index].get_percent_completed() as u16;
+
+    let prog_gauge = Gauge::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Progress")
+                .border_type(BorderType::Rounded),
+        )
+        .gauge_style(
+            Style::default()
+                .fg(Color::White)
+                .bg(Color::Black)
+                .add_modifier(Modifier::ITALIC),
+        )
+        .percent(active_job_percent);
+    frame.render_widget(prog_gauge, rhs_subchunks[1]);
 
     let details = Table::new(job_details)
         .block(
@@ -85,7 +108,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let job_status_map = HashMap::from([
         ("F", red_style),
         ("PD", orange_style),
-        ("R", blue_style),
+        ("R", light_green_style),
         ("CD", light_green_style),
         ("CA", orange_style),
         ("TO", orange_style),
@@ -176,9 +199,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     );
     frame.render_widget(help, chunks[1]);
 
-
     let output = Table::new(
-        app.output_file
+        app.job_output
             .items
             .iter()
             .fold(Vec::new(), |mut acc, line| {
@@ -202,5 +224,5 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             .add_modifier(Modifier::BOLD),
     );
 
-    frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.output_file.state);
+    frame.render_stateful_widget(output, rhs_subchunks[2], &mut app.job_output.state);
 }
