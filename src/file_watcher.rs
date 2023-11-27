@@ -1,4 +1,10 @@
+use crossbeam::{
+    channel::{unbounded, Receiver, RecvError, SendError, Sender},
+    select,
+};
+
 use notify;
+use notify::{event::ModifyKind, recommended_watcher, RecursiveMode, Watcher};
 use std::{
     fs::File,
     io::{self, Read, Seek},
@@ -6,12 +12,6 @@ use std::{
     thread,
     time::Duration,
 };
-
-use crossbeam::{
-    channel::{unbounded, Receiver, RecvError, SendError, Sender},
-    select,
-};
-use notify::{event::ModifyKind, recommended_watcher, RecursiveMode, Watcher};
 
 use crate::app::AppMessage;
 
@@ -76,6 +76,7 @@ impl FileWatcher {
                             self.file_path = None;
                         }
                         if let Some(p) = file_path {
+                            // debug!("Watching {:?}", p);
                             let res = watcher.watch(Path::new(&p),RecursiveMode::NonRecursive);
                             match res {
                                 Ok(_) => {
@@ -95,7 +96,7 @@ impl FileWatcher {
                 }
                 recv(watch_receiver) -> _ => {_watch_sender.send(()).unwrap();}
                 recv(_content_receiver) -> msg => {
-                self.app.send(AppMessage::OutputFile(msg.unwrap().map_err(|e| FileWatcherError::File(e)))).unwrap();
+                    self.app.send(AppMessage::OutputFile(msg.unwrap().map_err(|e| FileWatcherError::File(e)))).unwrap();
             }
             }
         }
@@ -118,10 +119,12 @@ impl FileWatcherHandle {
             file_path: None,
         }
     }
-    pub fn set_file_path(&mut self, file_path: Option<PathBuf> ) {
+    pub fn set_file_path(&mut self, file_path: Option<PathBuf>) {
         if self.file_path != file_path {
             self.file_path = file_path.clone();
-            self.sender.send(FileWatcherMessage::FilePath(file_path)).unwrap();
+            self.sender
+                .send(FileWatcherMessage::FilePath(file_path))
+                .unwrap();
         }
     }
 }
@@ -167,7 +170,7 @@ impl FileReader {
 
     fn update(&mut self) -> Result<(), SendError<io::Result<String>>> {
         let s = File::open(&self.file_path).and_then(|mut f| {
-            // update the position in the file, so we just 
+            // update the position in the file, so we just
             self.pos = f.seek(io::SeekFrom::Start(self.pos))?;
             // advance the position by the number of bytes read from the file
             self.pos += f.read_to_string(&mut self.content)? as u64;

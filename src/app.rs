@@ -1,5 +1,5 @@
 use crate::{
-    file_watcher::{ FileWatcherError, FileWatcherHandle},
+    file_watcher::{FileWatcherError, FileWatcherHandle},
     job_watcher::JobWatcherHandle,
     slurm::SlurmJob,
     ui::render,
@@ -10,7 +10,7 @@ use crossbeam::{
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{backend::Backend, widgets::*, Terminal};
-use std::{collections::HashMap, error, io, path::PathBuf, time::Duration};
+use std::{error, io, path::PathBuf, time::Duration};
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -226,7 +226,7 @@ impl App {
                 recv(self.input_receiver) -> input_res => {
                     match input_res.unwrap().unwrap() {
                         Event::Key(key_event) => {
-                            if key_event.code == KeyCode::Char('c') && key_event.modifiers == KeyModifiers::CONTROL {
+                            if (key_event.code == KeyCode::Char('c') && key_event.modifiers == KeyModifiers::CONTROL) || key_event.code == KeyCode::Char('q') {
                                 return Ok(());
                             } else {
                                 self.handle(AppMessage::Key(key_event));
@@ -240,8 +240,7 @@ impl App {
             };
             terminal.draw(|f| render(self, f)).unwrap();
         }
-
-       }
+    }
 
     pub fn handle(&mut self, msg: AppMessage) {
         match msg {
@@ -256,44 +255,35 @@ impl App {
                     Err(_) => vec![format!("Could not read file").to_string()],
                 };
             }
-            AppMessage::Key(key_event) => {
-                match key_event.code {
-                    // Exit application on `ESC` or `q`
-                    // Exit application on `Ctrl-C`
-                    KeyCode::Char('c') | KeyCode::Char('C') => {
-                        self.on_c();
-                    }
-                    // Counter handlers
-                    // KeyCode::Char('r') => {
-                    //     // TODO: this should be done periodically anyway
-                    //     self.refresh_job_list();
-                    // }
-                    KeyCode::Down => {
-                        if key_event.modifiers == KeyModifiers::SHIFT {
-                            self.on_shift_down();
-                        } else {
-                            self.on_down();
-                        }
-                    }
-                    KeyCode::Char('t') => {
-                        self.on_t();
-                    }
-                    KeyCode::Char('b') => {
-                        self.on_b();
-                    }
-                    KeyCode::Up => {
-                        if key_event.modifiers == KeyModifiers::SHIFT {
-                            self.on_shift_up();
-                        } else {
-                            self.on_up();
-                        }
-                    }
-                    KeyCode::Tab => {
-                        self.toggle_focus();
-                    }
-                    _ => {}
+            AppMessage::Key(key_event) => match key_event.code {
+                KeyCode::Char('c') | KeyCode::Char('C') => {
+                    self.on_c();
                 }
-            }
+                KeyCode::Down => {
+                    if key_event.modifiers == KeyModifiers::SHIFT {
+                        self.on_shift_down();
+                    } else {
+                        self.on_down();
+                    }
+                }
+                KeyCode::Char('t') => {
+                    self.on_t();
+                }
+                KeyCode::Char('b') => {
+                    self.on_b();
+                }
+                KeyCode::Up => {
+                    if key_event.modifiers == KeyModifiers::SHIFT {
+                        self.on_shift_up();
+                    } else {
+                        self.on_up();
+                    }
+                }
+                KeyCode::Tab => {
+                    self.toggle_focus();
+                }
+                _ => {}
+            },
         }
         // update the job watcher
         let curr_output_file = self.get_output_file_path();
@@ -302,8 +292,10 @@ impl App {
 
     // TODO: this function is to go now§
     pub fn get_output_file_path(&mut self) -> Option<PathBuf> {
+        //TODO: this just handles the default output file for now
         return Some(PathBuf::from(format!(
             "{}/slurm-{}.out",
+            //BUG: this can somehow be an empty list!!
             self.slurm_jobs.items[self.selected_index].work_dir.clone(),
             self.slurm_jobs.items[self.selected_index].job_id.clone()
         )));

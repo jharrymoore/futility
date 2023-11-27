@@ -71,14 +71,17 @@ impl SlurmJob {
     pub fn get_percent_completed(&self) -> u16 {
         let elapsed = NaiveTime::from_str(&self.elapsed_time).unwrap();
         // get elapsed time
-        let wall_time = NaiveTime::from_str(&self.time_limit).unwrap();
-        // dbg!(&elapsed, &wall_time);
-        // dbg!(elapsed.num_seconsds_from_midnight() as u16);
-        // dbg!(wall_time.num_seconds_from_midnight() as u16);
-        let percent_complete = (elapsed.num_seconds_from_midnight() as f32
-            / wall_time.num_seconds_from_midnight() as f32)
-            * 100.;
-        // dbg!(percent_complete);
-        percent_complete as u16
+        let wall_time = NaiveTime::from_str(&self.time_limit);
+        // dbg!(&wall_time);
+        match wall_time {
+            Ok(wall_time) => {
+                let percent_complete = (elapsed.num_seconds_from_midnight() as f32
+                    / wall_time.num_seconds_from_midnight() as f32)
+                    * 100.;
+                percent_complete as u16
+                // dbg!(percent_complete);
+            }
+            Err(_) => 0.0 as u16,
+        }
     }
 }

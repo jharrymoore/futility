@@ -1,17 +1,14 @@
 use std::collections::HashMap;
 
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin},
-    style::{self, Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{
-        Block, BorderType, Borders, Gauge, List, ListItem, Paragraph, Row, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, Wrap,
-    },
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Borders, Gauge, Paragraph, Row, Table},
     Frame,
 };
 
-use crate::app::{App, Focus, StatefulTable};
+use crate::app::{App, Focus};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -111,7 +108,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ("R", light_green_style),
         ("CD", light_green_style),
         ("CA", orange_style),
-        ("TO", orange_style),
+        ("TO", light_green_style),
         ("PR", orange_style),
         ("NF", orange_style),
         ("RV", orange_style),
@@ -165,14 +162,12 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.render_stateful_widget(table, subchunks[0], &mut app.slurm_jobs.state);
 
     let help_options = vec![
-        ("q", "quit"),
+        ("q, ctrl+c", "quit"),
         ("⏶/⏷", "navigate"),
         ("t/b", "top/bottom"),
         ("shift+up/shift+down", "fast scroll"),
         ("esc", "cancel"),
-        ("enter", "confirm"),
         ("c", "cancel job"),
-        ("r", "refresh job list"),
         // ("o", "toggle stdout/stderr"),
     ];
 

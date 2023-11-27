@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::{io::BufRead, process::Command, thread, time::Duration};
+
+use std::{io::BufRead, thread, time::Duration};
 
 use crossbeam::channel::Sender;
 
@@ -104,71 +104,59 @@ impl JobWatcher {
                 elapsed_time,
             ));
         });
+
+        // now run the squeue command, pick up any jobs that don't show in sacct (e.g. jobs pending
+        // without a start time etc)
+        let squ_cmd =
+            format! {"squeue -u {} --format=%i,%j,%P,%a,%V,%S,%e,%T,%r,%Z,%r,%l,%M", self.user};
+
+        let output = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(squ_cmd)
+            .output()
+            .expect("Failed to spawn squeue command");
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        output.lines().skip(1).for_each(|line| {
+            let parts = line.split(",").collect::<Vec<&str>>();
+            let job_id = parts[0].to_string();
+            // check if job_id already exists
+            if job_list.iter().find(|&j| j.job_id == job_id).is_none() {
+                // create new SlurmJob
+                let job_name = parts[1].to_string();
+                let partition = parts[2].to_string();
+                let account = parts[3].to_string();
+                let submit = parts[4].to_string(); // parse this to datetime
+                let start = parts[5].to_string();
+                let end = parts[6].to_string();
+                let state = status_map
+                    .get(parts[7].split_whitespace().nth(0).unwrap())
+                    .unwrap_or(&parts[7])
+                    .to_string();
+                let work_dir = parts[8].to_string();
+                let reason = parts[9].to_string();
+                let time_limit = parts[10].to_string();
+                let elapsed_time = parts[11].to_string();
+                job_list.push(SlurmJob::new(
+                    job_id,
+                    job_name,
+                    partition,
+                    account,
+                    state,
+                    start,
+                    submit,
+                    end,
+                    reason,
+                    work_dir,
+                    time_limit,
+                    elapsed_time,
+                ));
+            };
+        });
+
         job_list
     }
-
-    // fn resolve_path(
-    //     path: &str,
-    //     array_master: &str,
-    //     array_id: &str,
-    //     id: &str,
-    //     host: &str,
-    //     user: &str,
-    //     name: &str,
-    //     working_dir: &str,
-    // ) -> Option<PathBuf> {
-    //     // see https://slurm.schedmd.com/sbatch.html#SECTION_%3CB%3Efilename-pattern%3C/B%3E
-    //     lazy_static::lazy_static! {
-    //         static ref RE: Regex = Regex::new(r"%(%|A|a|J|j|N|n|s|t|u|x)").unwrap();
-    //     }
-    //
-    //     let mut path = path.to_owned();
-    //     let slurm_no_val = "4294967294";
-    //     let array_id = if array_id == "N/A" {
-    //         slurm_no_val
-    //     } else {
-    //         array_id
-    //     };
-    //
-    //     if path.is_empty() {
-    //         // never happens right now, because `squeue -O stdout` seems to always return something
-    //         path = if array_id == slurm_no_val {
-    //             PathBuf::from(working_dir).join("slurm-%J.out")
-    //         } else {
-    //             PathBuf::from(working_dir).join("slurm-%A_%a.out")
-    //         }
-    //         .to_str()
-    //         .unwrap()
-    //         .to_owned()
-    //     };
-    //
-    //     for cap in RE
-    //         .captures_iter(&path.clone())
-    //         .collect::<Vec<_>>() // TODO: this is stupid, there has to be a better way to reverse the captures...
-    //         .iter()
-    //         .rev()
-    //     {
-    //         let m = cap.get(0).unwrap();
-    //         let replacement = match m.as_str() {
-    //             "%%" => "%",
-    //             "%A" => array_master,
-    //             "%a" => array_id,
-    //             "%J" => id,
-    //             "%j" => id,
-    //             "%N" => host.split(',').next().unwrap_or(host),
-    //             "%n" => "0",
-    //             "%s" => "batch",
-    //             "%t" => "0",
-    //             "%u" => user,
-    //             "%x" => name,
-    //             _ => unreachable!(),
-    //         };
-    //
-    //         path.replace_range(m.range(), replacement);
-    //     }
-    //
-    //     Some(PathBuf::from(path))
-    // }
 }
 
 impl JobWatcherHandle {

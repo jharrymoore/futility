@@ -10,6 +10,9 @@ chrono = "0.4.31"
 clap = { version = "4.4.8", features = ["derive"] }
 crossbeam = "0.8.2"
 crossterm = "0.26.1"
+fern = "0.6.2"
+humantime = "2.1.0"
+log = "0.4.20"
 notify = "6.1.1"
 ratatui = "0.24.0"
 

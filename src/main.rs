@@ -8,8 +8,10 @@ use crossterm::terminal::{
 };
 use futility::app::{App, AppResult};
 // use futility::event::{Even t, EventHandler};
+use fern;
 use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::Terminal;
+use std::time::SystemTime;
 use std::{io, thread};
 
 #[derive(Parser)]
@@ -20,42 +22,37 @@ struct CLIArgs {
     user: String,
 }
 
+
+
+fn setup_logger() -> Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .chain(fern::log_file("output.log")?)
+        .apply()?;
+    Ok(())
+}
+
 fn main() -> AppResult<()> {
     let args = CLIArgs::parse();
     // Create an application.
+    setup_logger()?;
 
-    // let (sender, receiver) = unbounded();
-
-    // Initialize the terminal user interface.
-    // let events = EventHandler::new(250);
-    // let mut tui = Tui::new(terminal, events);
-    // tui.init()?;
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(io::stderr());
     let mut terminal = Terminal::new(backend)?;
-    let _ = run_app(&mut terminal, args);
-
-    // create a channel to communicate between watcher threads and main application thread.
-
-    // Start the main loop.
-    // while app.running {
-    //     // Render the user interface.
-    //     tui.draw(&mut app)?;
-    //     // Handle events.
-    //     match tui.events.next()? {
-    //         Event::Tick => app.tick(),
-    //         Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
-    //         Event::Mouse(_) => {}
-    //         Event::Resize(_, _) => {}
-    //     }
-    //     // check time elapsed since last update time - if more than 10 s, update
-    //     // if app.last_update_time + Duration::seconds(10) < Local::now().time() {
-    //     //     app.slurm_jobs = refresh_job_list(&app.user, app.time_period);
-    //     //     app.last_update_time = Local::now().time();
-    //     // }
-    // }
+    run_app(&mut terminal, args)?;
 
     disable_raw_mode()?;
     execute!(
@@ -81,7 +78,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, args: CLIArgs) -> io::Result<
     );
 
     thread::spawn(move || input_loop(input_tx));
-    app.run(terminal);
+    app.run(terminal)?;
     Ok(())
 }
 
