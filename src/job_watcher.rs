@@ -42,7 +42,6 @@ impl JobWatcher {
         "sacct -u {} -S $(date -d '{} hours ago' +\"%Y-%m-%dT%H:%M:%S\")  \
         --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed  \
         --parsable2 ", self.user, self.time_limit);
-        // let args = vec!["-u", user, "-S", "$(date -d '{} hours ago' +\"%Y-%m-%dT%H:%M:%S\")", "--format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed", "--parsable2"];
         let exclude_strings = vec!["batch", "extern", ".0"];
         let status_map = HashMap::from([
             ("PENDING", "PD"),
@@ -113,20 +112,44 @@ impl JobWatcher {
 
         // now run the squeue command, pick up any jobs that don't show in sacct (e.g. jobs pending
         // without a start time etc)
-        let squ_cmd = format! {"squeue -u {} \
-        --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed,Stdout,Stderr",
-        self.user};
+        let squ_args = [
+            "JobID",
+            "Name",
+            "Partition",
+            "Account",
+            "SubmitTime",
+            "StartTime",
+            "EndTime",
+            "State",
+            "WorkDir",
+            "Reason",
+            "TimeLimit",
+            "TimeUsed",
+            "Stdout",
+            "Stderr",
+        ];
+        // let squ_cmd = format! {"squeue -u {} \
+        // --Format=JobID,Name,Partition,Account,SubmitTime,StartTime,EndTime,State,WorkDir,Reason,TimeLimit,TimeUsed,Stdout,Stderr --noheader",
+        // self.user};
+
+        let squ_formatted_args = squ_args.map(|s| s.to_owned() + ":##").join(",");
+        // dbg!(&squ_formatted_args);
+
+        let cmd = format!(
+            "squeue -u {} --noheader --array --Format {}",
+            self.user, squ_formatted_args
+        );
 
         let output = std::process::Command::new("bash")
             .arg("-c")
-            .arg(squ_cmd)
+            .arg(cmd)
             .output()
             .expect("Failed to spawn squeue command");
 
         let output = String::from_utf8_lossy(&output.stdout);
 
         output.lines().skip(1).for_each(|line| {
-            let parts = line.split(",").collect::<Vec<&str>>();
+            let parts = line.split("##").collect::<Vec<&str>>();
             let job_id = parts[0].to_string();
             // check if job_id already exists
             if let Some(job) = job_list.iter_mut().find(|j| j.job_id == job_id) {
