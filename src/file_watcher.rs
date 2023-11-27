@@ -6,6 +6,7 @@ use crossbeam::{
 use notify;
 use notify::{event::ModifyKind, recommended_watcher, RecursiveMode, Watcher};
 use std::{
+    fmt::{self, Display, Formatter},
     fs::File,
     io::{self, Read, Seek},
     path::{Path, PathBuf},
@@ -24,6 +25,16 @@ pub enum FileWatcherError {
     Watcher(notify::Error),
     File(io::Error),
 }
+
+impl Display for FileWatcherError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FileWatcherError::Watcher(e) => write!(f, "Watcher error: {}", e),
+            FileWatcherError::File(e) => write!(f, "File error: {}", e),
+        }
+    }
+}
+
 struct FileWatcher {
     app: Sender<AppMessage>,
     receiver: Receiver<FileWatcherMessage>,

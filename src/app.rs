@@ -252,7 +252,7 @@ impl App {
             AppMessage::OutputFile(output_file) => {
                 self.job_output.items = match output_file {
                     Ok(contents) => contents.lines().map(|s| s.to_string()).collect(),
-                    Err(_) => vec![format!("Could not read file").to_string()],
+                    Err(e) => vec![e.to_string()],
                 };
             }
             AppMessage::Key(key_event) => match key_event.code {
@@ -292,13 +292,19 @@ impl App {
 
     // TODO: this function is to go now§
     pub fn get_output_file_path(&mut self) -> Option<PathBuf> {
-        //TODO: this just handles the default output file for now
-        return Some(PathBuf::from(format!(
-            "{}/slurm-{}.out",
-            //BUG: this can somehow be an empty list!!
-            self.slurm_jobs.items[self.selected_index].work_dir.clone(),
-            self.slurm_jobs.items[self.selected_index].job_id.clone()
-        )));
+        // check if stdout is an existing file
+        let current_job = &self.slurm_jobs.items[self.selected_index];
+
+        if let Some(stdout) = &current_job.stdout {
+            return Some(PathBuf::from(stdout));
+        } else {
+            return Some(PathBuf::from(format!(
+                "{}/slurm-{}.out",
+                //BUG: this can somehow be an empty list!!
+                self.slurm_jobs.items[self.selected_index].work_dir.clone(),
+                self.slurm_jobs.items[self.selected_index].job_id.clone()
+            )));
+        }
     }
 
     /// Handles the tick event of the terminal.

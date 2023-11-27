@@ -16,6 +16,8 @@ pub struct SlurmJob {
     pub work_dir: String,
     pub time_limit: String,
     pub elapsed_time: String,
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
 }
 
 impl SlurmJob {
@@ -32,6 +34,8 @@ impl SlurmJob {
         work_dir: String,
         time_limit: String,
         elapsed_time: String,
+        stdout: Option<String>,
+        stderr: Option<String>,
     ) -> SlurmJob {
         SlurmJob {
             job_id,
@@ -46,6 +50,8 @@ impl SlurmJob {
             work_dir,
             time_limit,
             elapsed_time,
+            stdout,
+            stderr,
         }
     }
 }

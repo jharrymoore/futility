@@ -19,7 +19,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let subchunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
         .split(chunks[0]);
 
     let rhs_subchunks = Layout::default()
@@ -50,6 +50,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     job_details.push(Row::new(vec![
         "WORK DIR".to_string(),
         selected_job.work_dir.to_owned(),
+    ]));
+    job_details.push(Row::new(vec![
+        "STDOUT".to_string(),
+        selected_job.stdout.to_owned().unwrap_or("".to_string()),
     ]));
 
     let active_job_percent =

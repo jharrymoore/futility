@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use std::path::PathBuf;
 use std::{io::BufRead, thread, time::Duration};
 
 use crossbeam::channel::Sender;
@@ -89,6 +90,9 @@ impl JobWatcher {
             let reason = parts[9].to_string();
             let time_limit = parts[10].to_string();
             let elapsed_time = parts[11].to_string();
+            // we don't get stdout from sacct, use best guess for completed jobs, otherwise this
+            // will be filled from squeue later.
+            let (stdout, stderr) = (None, None);
             job_list.push(SlurmJob::new(
                 job_id,
                 job_name,
@@ -102,13 +106,16 @@ impl JobWatcher {
                 work_dir,
                 time_limit,
                 elapsed_time,
+                stdout,
+                stderr,
             ));
         });
 
         // now run the squeue command, pick up any jobs that don't show in sacct (e.g. jobs pending
         // without a start time etc)
-        let squ_cmd =
-            format! {"squeue -u {} --format=%i,%j,%P,%a,%V,%S,%e,%T,%r,%Z,%r,%l,%M", self.user};
+        let squ_cmd = format! {"squeue -u {} \
+        --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed,Stdout,Stderr",
+        self.user};
 
         let output = std::process::Command::new("bash")
             .arg("-c")
@@ -122,7 +129,20 @@ impl JobWatcher {
             let parts = line.split(",").collect::<Vec<&str>>();
             let job_id = parts[0].to_string();
             // check if job_id already exists
-            if job_list.iter().find(|&j| j.job_id == job_id).is_none() {
+            if let Some(job) = job_list.iter_mut().find(|j| j.job_id == job_id) {
+                // update the stdout/stderr from the job, only if it exists
+                let stdout = parts[12].to_string();
+                let stderr = parts[13].to_string();
+                if PathBuf::from(&stdout).is_file() {
+                    job.stdout = Some(stdout);
+                }
+                if PathBuf::from(&stderr).is_file() {
+                    job.stderr = Some(stderr);
+                }
+            } else {
+                // create the job from scratch, it is pending or in some other state that sacct
+                // ignores
+                // if job_list.iter().find(|&j| j.job_id == job_id).is_none() {
                 // create new SlurmJob
                 let job_name = parts[1].to_string();
                 let partition = parts[2].to_string();
@@ -138,6 +158,8 @@ impl JobWatcher {
                 let reason = parts[9].to_string();
                 let time_limit = parts[10].to_string();
                 let elapsed_time = parts[11].to_string();
+                let stdout = parts[12].to_string();
+                let stderr = parts[13].to_string();
                 job_list.push(SlurmJob::new(
                     job_id,
                     job_name,
@@ -151,9 +173,13 @@ impl JobWatcher {
                     work_dir,
                     time_limit,
                     elapsed_time,
+                    Some(stdout),
+                    Some(stderr),
                 ));
             };
         });
+
+        job_list.sort_by(|a, b| a.job_id.cmp(&b.job_id));
 
         job_list
     }
