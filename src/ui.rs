@@ -52,52 +52,53 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     // construct detailed job info
     let mut job_details = Vec::new();
-    let selected_job = &app.slurm_jobs.items[app.selected_index].clone();
-
-    job_details.push(Row::new(vec![
-        Span::styled("STATE".to_string(), blue_style),
-        Span::styled(
-            selected_job.state.to_owned(),
-            *job_status_map
-                .get(&selected_job.state.as_str())
-                .unwrap_or(&white_style),
-        ),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("JOB ID".to_string(), blue_style),
-        Span::styled(selected_job.job_id.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("JOB NAME".to_string(), blue_style),
-        Span::styled(selected_job.job_name.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("NODE".to_string(), blue_style),
-        Span::styled(selected_job.node_list.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("WORK DIR".to_string(), blue_style),
-        Span::styled(selected_job.work_dir.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("ACCOUNT".to_string(), blue_style),
-        Span::styled(selected_job.account.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("SUBMIT".to_string(), blue_style),
-        Span::styled(selected_job.submit.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("START".to_string(), blue_style),
-        Span::styled(selected_job.start.to_owned(), white_style),
-    ]));
-    job_details.push(Row::new(vec![
-        Span::styled("ELAPSED".to_string(), blue_style),
-        Span::styled(
-            selected_job.elapsed_time.to_owned() + " / " + &selected_job.time_limit,
-            white_style,
-        ),
-    ]));
+    let selected_job = &app.slurm_jobs.items.get(app.selected_index).clone();
+    if let Some(selected_job) = selected_job {
+        job_details.push(Row::new(vec![
+            Span::styled("STATE".to_string(), blue_style),
+            Span::styled(
+                selected_job.state.to_owned(),
+                *job_status_map
+                    .get(&selected_job.state.as_str())
+                    .unwrap_or(&white_style),
+            ),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("JOB ID".to_string(), blue_style),
+            Span::styled(selected_job.job_id.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("JOB NAME".to_string(), blue_style),
+            Span::styled(selected_job.job_name.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("NODE".to_string(), blue_style),
+            Span::styled(selected_job.node_list.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("WORK DIR".to_string(), blue_style),
+            Span::styled(selected_job.work_dir.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("ACCOUNT".to_string(), blue_style),
+            Span::styled(selected_job.account.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("SUBMIT".to_string(), blue_style),
+            Span::styled(selected_job.submit.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("START".to_string(), blue_style),
+            Span::styled(selected_job.start.to_owned(), white_style),
+        ]));
+        job_details.push(Row::new(vec![
+            Span::styled("ELAPSED".to_string(), blue_style),
+            Span::styled(
+                selected_job.elapsed_time.to_owned() + " / " + &selected_job.time_limit,
+                white_style,
+            ),
+        ]));
+    }
 
     // let active_job_percent =
     //     app.slurm_jobs.items[app.selected_index].get_percent_completed() as u16;
