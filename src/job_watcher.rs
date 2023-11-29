@@ -37,10 +37,11 @@ impl JobWatcher {
             thread::sleep(self.interval);
         }
     }
-    pub fn refresh_job_list(&mut self) -> Vec<SlurmJob> {
+    pub fn refresh_job_list(&mut self) -> Option<Vec<SlurmJob>> {
+
         let cmd = format!(
         "sacct -u {} -S $(date -d '{} hours ago' +\"%Y-%m-%dT%H:%M:%S\")  \
-        --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed  \
+        --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed,NodeList  \
         --parsable2 ", self.user, self.time_limit);
         let exclude_strings = vec!["batch", "extern", ".0"];
         let status_map = HashMap::from([
@@ -89,6 +90,7 @@ impl JobWatcher {
             let reason = parts[9].to_string();
             let time_limit = parts[10].to_string();
             let elapsed_time = parts[11].to_string();
+            let node_list = parts[12].to_string();
             // we don't get stdout from sacct, use best guess for completed jobs, otherwise this
             // will be filled from squeue later.
             let (stdout, stderr) = (None, None);
@@ -107,6 +109,7 @@ impl JobWatcher {
                 elapsed_time,
                 stdout,
                 stderr,
+                node_list,
             ));
         });
 
@@ -127,6 +130,7 @@ impl JobWatcher {
             "TimeUsed",
             "Stdout",
             "Stderr",
+            "NodeList",
         ];
         // let squ_cmd = format! {"squeue -u {} \
         // --Format=JobID,Name,Partition,Account,SubmitTime,StartTime,EndTime,State,WorkDir,Reason,TimeLimit,TimeUsed,Stdout,Stderr --noheader",
@@ -148,7 +152,7 @@ impl JobWatcher {
 
         let output = String::from_utf8_lossy(&output.stdout);
 
-        output.lines().skip(1).for_each(|line| {
+        output.lines().for_each(|line| {
             let parts = line.split("##").collect::<Vec<&str>>();
             let job_id = parts[0].to_string();
             // check if job_id already exists
@@ -183,6 +187,8 @@ impl JobWatcher {
                 let elapsed_time = parts[11].to_string();
                 let stdout = parts[12].to_string();
                 let stderr = parts[13].to_string();
+                let node_list = parts[14].to_string();
+
                 job_list.push(SlurmJob::new(
                     job_id,
                     job_name,
@@ -198,13 +204,17 @@ impl JobWatcher {
                     elapsed_time,
                     Some(stdout),
                     Some(stderr),
+                    node_list,
                 ));
             };
         });
 
         job_list.sort_by(|a, b| a.job_id.cmp(&b.job_id));
 
-        job_list
+        match job_list.is_empty() {
+            true => None,
+            false => Some(job_list),
+        }
     }
 }
 

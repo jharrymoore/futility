@@ -4,7 +4,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Gauge, Paragraph, Row, Table},
+    widgets::{Block, BorderType, Borders, Paragraph, Row, Table},
     Frame,
 };
 
@@ -12,6 +12,12 @@ use crate::app::{App, Focus};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
+    let blue_style = Style::default().fg(Color::Blue);
+    let light_green_style = Style::default().fg(Color::LightGreen);
+    let red_style = Style::default().fg(Color::LightRed);
+    let orange_style = Style::default().fg(Color::Yellow);
+    let white_style = Style::default().fg(Color::White);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(85), Constraint::Max(3)])
@@ -25,55 +31,92 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let rhs_subchunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),
-            Constraint::Length(3),
+            Constraint::Length(11),
+            // Constraint::Length(3),
             Constraint::Percentage(60),
         ])
         .split(subchunks[1]);
+
+    let job_status_map = HashMap::from([
+        ("F", red_style),
+        ("PD", orange_style),
+        ("R", light_green_style),
+        ("CD", light_green_style),
+        ("CA", orange_style),
+        ("TO", light_green_style),
+        ("PR", orange_style),
+        ("NF", orange_style),
+        ("RV", orange_style),
+        ("S", orange_style),
+    ]);
 
     // construct detailed job info
     let mut job_details = Vec::new();
     let selected_job = &app.slurm_jobs.items[app.selected_index].clone();
 
     job_details.push(Row::new(vec![
-        "STATE".to_string(),
-        selected_job.state.to_owned(),
+        Span::styled("STATE".to_string(), blue_style),
+        Span::styled(
+            selected_job.state.to_owned(),
+            *job_status_map
+                .get(&selected_job.state.as_str())
+                .unwrap_or(&white_style),
+        ),
     ]));
     job_details.push(Row::new(vec![
-        "JOB ID".to_string(),
-        selected_job.job_id.to_owned(),
+        Span::styled("JOB ID".to_string(), blue_style),
+        Span::styled(selected_job.job_id.to_owned(), white_style),
     ]));
     job_details.push(Row::new(vec![
-        "JOB NAME".to_string(),
-        selected_job.job_name.to_owned(),
+        Span::styled("JOB NAME".to_string(), blue_style),
+        Span::styled(selected_job.job_name.to_owned(), white_style),
     ]));
     job_details.push(Row::new(vec![
-        "WORK DIR".to_string(),
-        selected_job.work_dir.to_owned(),
+        Span::styled("NODE".to_string(), blue_style),
+        Span::styled(selected_job.node_list.to_owned(), white_style),
     ]));
     job_details.push(Row::new(vec![
-        "STDOUT".to_string(),
-        selected_job.stdout.to_owned().unwrap_or("".to_string()),
+        Span::styled("WORK DIR".to_string(), blue_style),
+        Span::styled(selected_job.work_dir.to_owned(), white_style),
+    ]));
+    job_details.push(Row::new(vec![
+        Span::styled("ACCOUNT".to_string(), blue_style),
+        Span::styled(selected_job.account.to_owned(), white_style),
+    ]));
+    job_details.push(Row::new(vec![
+        Span::styled("SUBMIT".to_string(), blue_style),
+        Span::styled(selected_job.submit.to_owned(), white_style),
+    ]));
+    job_details.push(Row::new(vec![
+        Span::styled("START".to_string(), blue_style),
+        Span::styled(selected_job.start.to_owned(), white_style),
+    ]));
+    job_details.push(Row::new(vec![
+        Span::styled("ELAPSED".to_string(), blue_style),
+        Span::styled(
+            selected_job.elapsed_time.to_owned() + " / " + &selected_job.time_limit,
+            white_style,
+        ),
     ]));
 
-    let active_job_percent =
-        app.slurm_jobs.items[app.selected_index].get_percent_completed() as u16;
+    // let active_job_percent =
+    //     app.slurm_jobs.items[app.selected_index].get_percent_completed() as u16;
 
-    let prog_gauge = Gauge::default()
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Progress")
-                .border_type(BorderType::Rounded),
-        )
-        .gauge_style(
-            Style::default()
-                .fg(Color::White)
-                .bg(Color::Black)
-                .add_modifier(Modifier::ITALIC),
-        )
-        .percent(active_job_percent);
-    frame.render_widget(prog_gauge, rhs_subchunks[1]);
+    // let prog_gauge = Gauge::default()
+    //     .block(
+    //         Block::default()
+    //             .borders(Borders::ALL)
+    //             .title("Progress")
+    //             .border_type(BorderType::Rounded),
+    //     )
+    //     .gauge_style(
+    //         Style::default()
+    //             .fg(Color::White)
+    //             .bg(Color::Black)
+    //             .add_modifier(Modifier::ITALIC),
+    //     )
+    //     .percent(active_job_percent);
+    // frame.render_widget(prog_gauge, rhs_subchunks[1]);
 
     let details = Table::new(job_details)
         .block(
@@ -99,25 +142,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     //     .iter()
     //     .map(|job| ListItem::new(job.job_id.clone()))
     //     .collect();
-
-    let blue_style = Style::default().fg(Color::Blue);
-    let light_green_style = Style::default().fg(Color::LightGreen);
-    let red_style = Style::default().fg(Color::LightRed);
-    let orange_style = Style::default().fg(Color::Yellow);
-    let white_style = Style::default().fg(Color::White);
-
-    let job_status_map = HashMap::from([
-        ("F", red_style),
-        ("PD", orange_style),
-        ("R", light_green_style),
-        ("CD", light_green_style),
-        ("CA", orange_style),
-        ("TO", light_green_style),
-        ("PR", orange_style),
-        ("NF", orange_style),
-        ("RV", orange_style),
-        ("S", orange_style),
-    ]);
 
     let mut jobs_as_rows = Vec::new();
     for job in &app.slurm_jobs.items {
@@ -223,5 +247,5 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             .add_modifier(Modifier::BOLD),
     );
 
-    frame.render_stateful_widget(output, rhs_subchunks[2], &mut app.job_output.state);
+    frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.job_output.state);
 }

@@ -22,7 +22,8 @@ pub enum Focus {
 }
 
 pub enum AppMessage {
-    JobList(Vec<SlurmJob>),
+    // if job list is not empty, return the vec, otherwise None
+    JobList(Option<Vec<SlurmJob>>),
     // Just return the string, split it later
     OutputFile(Result<String, FileWatcherError>),
     Key(KeyEvent),
@@ -246,7 +247,19 @@ impl App {
         match msg {
             // If we have a refreshed job list, update the slurm jobs in place
             AppMessage::JobList(job_list) => {
-                self.slurm_jobs.items = job_list;
+                match job_list {
+                    Some(job_list) => {
+                        self.slurm_jobs.items = job_list;
+                        if self.selected_index > self.slurm_jobs.len() - 1 {
+                            self.selected_index = self.slurm_jobs.len() - 1;
+                        }
+                    }
+                    None => {}
+                }
+                // self.slurm_jobs.items = job_list;
+                // if self.selected_index > self.slurm_jobs.len() - 1 {
+                //     self.selected_index = self.slurm_jobs.len() - 1;
+                // }
             }
             // if we have an updated output file, update the output in place
             AppMessage::OutputFile(output_file) => {
@@ -287,24 +300,25 @@ impl App {
         }
         // update the job watcher
         let curr_output_file = self.get_output_file_path();
-        self.file_watcher_handle.set_file_path(curr_output_file)
+        self.file_watcher_handle.set_file_path(curr_output_file);
     }
 
     // TODO: this function is to go now§
     pub fn get_output_file_path(&mut self) -> Option<PathBuf> {
         // check if stdout is an existing file
-        let current_job = &self.slurm_jobs.items[self.selected_index];
-
-        if let Some(stdout) = &current_job.stdout {
-            return Some(PathBuf::from(stdout));
-        } else {
-            return Some(PathBuf::from(format!(
-                "{}/slurm-{}.out",
-                //BUG: this can somehow be an empty list!!
-                self.slurm_jobs.items[self.selected_index].work_dir.clone(),
-                self.slurm_jobs.items[self.selected_index].job_id.clone()
-            )));
+        let current_job = &self.slurm_jobs.items.get(self.selected_index);
+        if let Some(job) = current_job {
+            if let Some(stdout) = &job.stdout {
+                Some(PathBuf::from(stdout))
+            } else {
+                Some(PathBuf::from(format!(
+                    "{}/slurm-{}.out",
+                    job.work_dir.clone(),
+                    job.job_id.clone()
+                )))
+            };
         }
+        None
     }
 
     /// Handles the tick event of the terminal.

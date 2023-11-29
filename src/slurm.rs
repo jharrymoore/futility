@@ -18,6 +18,7 @@ pub struct SlurmJob {
     pub elapsed_time: String,
     pub stdout: Option<String>,
     pub stderr: Option<String>,
+    pub node_list: String,
 }
 
 impl SlurmJob {
@@ -36,6 +37,7 @@ impl SlurmJob {
         elapsed_time: String,
         stdout: Option<String>,
         stderr: Option<String>,
+        node_list: String,
     ) -> SlurmJob {
         SlurmJob {
             job_id,
@@ -52,6 +54,7 @@ impl SlurmJob {
             elapsed_time,
             stdout,
             stderr,
+            node_list,
         }
     }
 }
@@ -75,23 +78,33 @@ impl SlurmJob {
     }
 
     pub fn get_percent_completed(&self) -> u16 {
-        let elapsed = match NaiveTime::from_str(&self.elapsed_time) {
-            Ok(elapsed) => elapsed,
-            Err(_) => NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
-        };
-
+        // this will either be minutes and seconds or hours, minutes and seconds. (note hours may
+        // be days-hours) if > 24 hrs
+        let elapsed = NaiveTime::from_str(&self.elapsed_time);
         // get elapsed time
         let wall_time = NaiveTime::from_str(&self.time_limit);
-        // dbg!(&wall_time);
-        match wall_time {
-            Ok(wall_time) => {
-                let percent_complete = (elapsed.num_seconds_from_midnight() as f32
-                    / wall_time.num_seconds_from_midnight() as f32)
-                    * 100.;
-                percent_complete as u16
-                // dbg!(percent_complete);
+        // dbg!(&wall_time, &elapsed);
+        let elapsed_time = match elapsed {
+            Ok(elapsed) => {
+                match wall_time {
+                    Ok(wall_time) => {
+                        let percent_complete = (elapsed.num_seconds_from_midnight() as f32
+                            / wall_time.num_seconds_from_midnight() as f32)
+                            * 100.;
+                        percent_complete as u16
+                        // dbg!(percent_complete);
+                    }
+                    Err(_) => 0.0 as u16,
+                }
             }
             Err(_) => 0.0 as u16,
+        };
+        // means something went wrong in parsing the times from slurm.  They don't standardise so
+        // rather just display something than panic
+        if elapsed_time > 100 {
+            100
+        } else {
+            elapsed_time
         }
     }
 }
