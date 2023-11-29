@@ -309,9 +309,9 @@ impl App {
         let current_job = &self.slurm_jobs.items.get(self.selected_index);
         if let Some(job) = current_job {
             if let Some(stdout) = &job.stdout {
-                Some(PathBuf::from(stdout))
+                return Some(PathBuf::from(stdout));
             } else {
-                Some(PathBuf::from(format!(
+                return Some(PathBuf::from(format!(
                     "{}/slurm-{}.out",
                     job.work_dir.clone(),
                     job.job_id.clone()
