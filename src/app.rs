@@ -8,7 +8,7 @@ use crossbeam::{
     channel::{unbounded, Receiver},
     select,
 };
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 use ratatui::{backend::Backend, widgets::*, Terminal};
 use std::{error, io, path::PathBuf, time::Duration};
 
@@ -250,16 +250,17 @@ impl App {
                 match job_list {
                     Some(job_list) => {
                         self.slurm_jobs.items = job_list;
+                        // handle the case where the job list has shrunk since the last call, e.g.
+                        // lots of pending jobs cancelled.
                         if self.selected_index > self.slurm_jobs.len() - 1 {
                             self.selected_index = self.slurm_jobs.len() - 1;
+                            // now the output file will correspond the lastjob in the list, set the
+                            // state of the job list
+                            self.slurm_jobs.state.select(Some(self.selected_index))
                         }
                     }
                     None => {}
                 }
-                // self.slurm_jobs.items = job_list;
-                // if self.selected_index > self.slurm_jobs.len() - 1 {
-                //     self.selected_index = self.slurm_jobs.len() - 1;
-                // }
             }
             // if we have an updated output file, update the output in place
             AppMessage::OutputFile(output_file) => {
@@ -315,7 +316,7 @@ impl App {
                     "{}/slurm-{}.out",
                     job.work_dir.clone(),
                     job.job_id.clone()
-                )))
+                )));
             };
         }
         None
