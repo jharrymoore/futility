@@ -2,6 +2,7 @@
 name = "futil"
 version = "0.1.0"
 authors = ["jharrymoore <jharrymoore@btinternet.com>"]
+description = "TUI interface for monitoring current and previous SLURM jobs"
 license = "MIT"
 edition = "2021"
 
