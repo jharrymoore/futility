@@ -1,5 +1,5 @@
 [package]
-name = "futility"
+name = "futil"
 version = "0.1.0"
 authors = ["jharrymoore <jharrymoore@btinternet.com>"]
 license = "MIT"
