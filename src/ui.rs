@@ -25,7 +25,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let subchunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
+        .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
         .split(chunks[0]);
 
     let rhs_subchunks = Layout::default()

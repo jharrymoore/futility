@@ -38,7 +38,6 @@ impl JobWatcher {
         }
     }
     pub fn refresh_job_list(&mut self) -> Option<Vec<SlurmJob>> {
-
         let cmd = format!(
         "sacct -u {} -S $(date -d '{} hours ago' +\"%Y-%m-%dT%H:%M:%S\")  \
         --format=JobID,JobName,Partition,Account,Submit,Start,End,State,WorkDir,Reason,TimeLimit,Elapsed,NodeList  \
@@ -160,11 +159,15 @@ impl JobWatcher {
                 // update the stdout/stderr from the job, only if it exists
                 let stdout = parts[12].to_string();
                 let stderr = parts[13].to_string();
+                let start_time = parts[5].to_string();
                 if PathBuf::from(&stdout).is_file() {
                     job.stdout = Some(stdout);
                 }
                 if PathBuf::from(&stderr).is_file() {
                     job.stderr = Some(stderr);
+                }
+                if job.start == "Unknown" && start_time != "Unknown" {
+                    job.start = start_time;
                 }
             } else {
                 // create the job from scratch, it is pending or in some other state that sacct
