@@ -6,7 +6,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use futil::app::{App, AppResult};
+use swatch::app::{App, AppResult};
 // use futility::event::{Even t, EventHandler};
 use fern;
 use ratatui::backend::{Backend, CrosstermBackend};

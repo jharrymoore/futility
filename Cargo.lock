@@ -339,21 +339,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futil"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "clap",
- "crossbeam",
- "crossterm 0.26.1",
- "fern",
- "humantime",
- "log",
- "notify",
- "ratatui",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -714,6 +699,21 @@ dependencies = [
  "quote",
  "rustversion",
  "syn",
+]
+
+[[package]]
+name = "swatch"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "crossbeam",
+ "crossterm 0.26.1",
+ "fern",
+ "humantime",
+ "log",
+ "notify",
+ "ratatui",
 ]
 
 [[package]]

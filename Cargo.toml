@@ -1,5 +1,5 @@
 [package]
-name = "futil"
+name = "swatch"
 version = "0.1.0"
 authors = ["jharrymoore <jharrymoore@btinternet.com>"]
 description = "TUI interface for monitoring current and previous SLURM jobs"
@@ -19,5 +19,5 @@ ratatui = "0.24.0"
 
 
 [[bin]]
-name = "futil"
+name = "swatch"
 path = "src/main.rs"
