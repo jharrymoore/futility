@@ -1,6 +1,13 @@
-use std::str::FromStr;
+use std::{str::FromStr, thread, time::Duration};
 
 use chrono::{NaiveTime, Timelike};
+use crossbeam::{
+    channel::{Receiver, Sender},
+    select,
+};
+
+use crate::app::{AppMessage, JobControlMessage};
+use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct SlurmJob {
@@ -106,5 +113,75 @@ impl SlurmJob {
         } else {
             elapsed_time
         }
+    }
+}
+pub fn cancel_job(job_id: &str) {
+    let cmd = format!("scancel {}", job_id);
+    // std::process::Command::new("bash")
+    //     .arg("-c")
+    //     .arg(cmd)
+    //     .output()
+    //     .expect("failed to execute process");
+    thread::sleep(Duration::from_secs(3));
+}
+
+#[derive(Debug)]
+pub struct SlurmJobControl {
+    // channel half on which to send back completion messages
+    send: Sender<AppMessage>,
+    // chanel half to listen for job handling instructions
+    recv: Receiver<JobControlMessage>,
+}
+
+impl SlurmJobControl {
+    pub fn new(send: Sender<AppMessage>, recv: Receiver<JobControlMessage>) -> Self {
+        Self { send, recv }
+    }
+
+    fn cancel_job(&self, job_id: &str) -> Result<()> {
+        let cmd = format!("scancel {}", job_id);
+        std::process::Command::new("bash")
+            .arg("-c")
+            .arg(cmd)
+            .output()
+            .expect("failed to execute process");
+        Ok(())
+    }
+
+    fn run(&mut self) {
+        // listen on the recv channel for a job handling instruction
+        loop {
+            select! {
+                recv(self.recv) -> msg => {
+                    match msg {
+                        Ok(msg) => {
+                            match msg {
+                                JobControlMessage::CancelJob(job_id) => {
+                                    let rtn = self.cancel_job(&job_id);
+                                    
+                                    self.send.send(AppMessage::JobCancelled(rtn)).unwrap();
+                                }
+                                                            }
+                        }
+                        Err(_) => {
+                            // the channel has been closed
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SlurmJobControlHandle {}
+
+impl SlurmJobControlHandle {
+    pub fn new(send: Sender<AppMessage>, recv: Receiver<JobControlMessage>) -> Self {
+        let mut actor = SlurmJobControl::new(send, recv);
+        thread::spawn(move || actor.run());
+
+        Self {}
     }
 }

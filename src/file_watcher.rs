@@ -87,7 +87,6 @@ impl FileWatcher {
                             self.file_path = None;
                         }
                         if let Some(p) = file_path {
-                            // debug!("Watching {:?}", p);
                             let res = watcher.watch(Path::new(&p),RecursiveMode::NonRecursive);
                             match res {
                                 Ok(_) => {

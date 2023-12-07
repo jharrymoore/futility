@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
+    prelude::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Paragraph, Row, Table},
+    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Row, Table},
     Frame,
 };
 
@@ -100,25 +101,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ]));
     }
 
-    // let active_job_percent =
-    //     app.slurm_jobs.items[app.selected_index].get_percent_completed() as u16;
-
-    // let prog_gauge = Gauge::default()
-    //     .block(
-    //         Block::default()
-    //             .borders(Borders::ALL)
-    //             .title("Progress")
-    //             .border_type(BorderType::Rounded),
-    //     )
-    //     .gauge_style(
-    //         Style::default()
-    //             .fg(Color::White)
-    //             .bg(Color::Black)
-    //             .add_modifier(Modifier::ITALIC),
-    //     )
-    //     .percent(active_job_percent);
-    // frame.render_widget(prog_gauge, rhs_subchunks[1]);
-
     let details = Table::new(job_details)
         .block(
             Block::default()
@@ -130,19 +112,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .widths(&[Constraint::Length(10), Constraint::Percentage(95)]);
 
     frame.render_widget(details, rhs_subchunks[0]);
-
-    // add a details block
-
-    // This is where you add new widgets.
-    // See the following resources:
-    // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
-    // - https://github.com/ratatui-org/ratatui/tree/master/examples
-    // let jobs: Vec<ListItem> = app
-    //     .slurm_jobs
-    //     .items
-    //     .iter()
-    //     .map(|job| ListItem::new(job.job_id.clone()))
-    //     .collect();
 
     let mut jobs_as_rows = Vec::new();
     for job in &app.slurm_jobs.items {
@@ -249,4 +218,53 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     );
 
     frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.job_output.state);
+
+    // if we are in the process of cancelling a job, render a central box over the top,
+    if app.cancelling {
+        let area = centered_rect(60, 20, frame.size());
+        let text = format!(
+            "Cancelling job: {}",
+            app.slurm_jobs.items[app.selected_index].job_id
+        );
+        let cancel_box = Paragraph::new(text).block(
+            Block::default()
+                .title_alignment(Alignment::Center)
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .style(Style::default().fg(Color::Red)),
+        ).alignment(Alignment::Center);
+        //
+        // let cancel_box = Block::default()
+        //     .title(format!(
+        //         "Cancelling job: {}",
+        //         app.slurm_jobs.items[app.selected_index].job_id
+        //     ))
+        //     .title_alignment(Alignment::Center)
+        //     .borders(Borders::ALL)
+        //     .border_type(BorderType::Rounded)
+        //     .padding(Padding::new(5, 10, 1, 2))
+        //     .style(Style::default().fg(Color::Red));
+        frame.render_widget(Clear, area);
+        frame.render_widget(cancel_box, area);
+    }
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }

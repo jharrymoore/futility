@@ -1,16 +1,16 @@
 use crate::{
     file_watcher::{FileWatcherError, FileWatcherHandle},
     job_watcher::JobWatcherHandle,
-    slurm::SlurmJob,
+    slurm::{self, SlurmJob, SlurmJobControlHandle},
     ui::render,
 };
 use crossbeam::{
-    channel::{unbounded, Receiver},
+    channel::{bounded, unbounded, Receiver, Sender},
     select,
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 use ratatui::{backend::Backend, widgets::*, Terminal};
-use std::{error, io, path::PathBuf, time::Duration};
+use std::{error, io, path::PathBuf, thread, time::Duration};
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -27,6 +27,12 @@ pub enum AppMessage {
     // Just return the string, split it later
     OutputFile(Result<String, FileWatcherError>),
     Key(KeyEvent),
+    JobCancelled(anyhow::Result<()>),
+}
+
+pub enum JobControlMessage {
+    // pass the jobID to be cancelled
+    CancelJob(String),
 }
 
 #[derive(Debug)]
@@ -161,19 +167,17 @@ impl IntoIterator for StatefulTable<SlurmJob> {
 /// Application.
 #[derive(Debug)]
 pub struct App {
-    /// Is the application running?
-    user: String,
-    time_period: usize,
     pub running: bool,
     pub slurm_jobs: StatefulTable<SlurmJob>,
     pub selected_index: usize,
-    // pub output_file: StatefulTable<String>,
     pub job_output: StatefulTable<String>,
     pub focus: Focus,
+    pub cancelling: bool,
     pub output_line_index: usize,
     receiver: Receiver<AppMessage>,
     input_receiver: Receiver<io::Result<Event>>,
-    job_watcher_handle: JobWatcherHandle,
+    job_ctrl_receiver: Receiver<AppMessage>,
+    job_ctrl_sender: Sender<JobControlMessage>,
     file_watcher_handle: FileWatcherHandle,
 }
 
@@ -189,9 +193,10 @@ impl App {
         let (sender, receiver) = unbounded();
         // sender gets used for the job watcher and slurm watcher threads.
         let running = true;
+        let cancelling = false;
         let slurm_jobs = StatefulTable::<SlurmJob>::default();
         let job_output = StatefulTable::<String>::default();
-        let job_watcher_handle = JobWatcherHandle::new(
+        let _ = JobWatcherHandle::new(
             sender.clone(),
             Duration::from_secs(slurm_refresh),
             user.clone(),
@@ -199,19 +204,22 @@ impl App {
         );
         let file_watcher_handle =
             FileWatcherHandle::new(sender.clone(), Duration::from_secs(file_refresh_rate));
+        let (job_ctrl_send, job_ctrl_recv) = unbounded();
+        let (job_ctrl_instr_send, job_ctrl_reply_recv) = unbounded();
+        let _ = SlurmJobControlHandle::new(job_ctrl_send.clone(), job_ctrl_reply_recv.clone());
 
         Self {
-            user,
-            time_period,
             running,
             slurm_jobs,
             selected_index: 0,
             focus: Focus::JobList,
+            cancelling,
             output_line_index: 0,
             job_output,
             receiver,
             input_receiver: input_rx,
-            job_watcher_handle,
+            job_ctrl_receiver: job_ctrl_recv,
+            job_ctrl_sender: job_ctrl_instr_send,
             file_watcher_handle,
         }
     }
@@ -229,12 +237,30 @@ impl App {
                         Event::Key(key_event) => {
                             if (key_event.code == KeyCode::Char('c') && key_event.modifiers == KeyModifiers::CONTROL) || key_event.code == KeyCode::Char('q') {
                                 return Ok(());
-                            } else {
-                                self.handle(AppMessage::Key(key_event));
+                            } else  {
+                                 self.handle(AppMessage::Key(key_event));
                             }
-                }
+                        }
                         // resize, anything else, continue
                         Event::Resize(_,_) => {},
+                        _ => {}
+                    }
+                }
+                // handle from the job control receiver thread
+                recv(self.job_ctrl_receiver) -> job_ctrl_msg => {
+                    match job_ctrl_msg.unwrap() {
+                        AppMessage::JobCancelled(result) => {
+                            match result {
+                                Ok(_) => {
+                                    // do something
+                                    self.cancelling = false;
+                                }
+                                Err(_) => {
+                                    // do something
+                                    self.cancelling = false;
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -269,35 +295,56 @@ impl App {
                     Err(e) => vec![e.to_string()],
                 };
             }
-            AppMessage::Key(key_event) => match key_event.code {
-                KeyCode::Char('c') | KeyCode::Char('C') => {
-                    self.on_c();
+            AppMessage::JobCancelled(result) => {
+                match result {
+                    // remove the popup on the next render
+                    Ok(_) => self.cancelling = false,
+                    // TODO: should be be ignoring this error?
+                    // something went wrong in the cancelling step, remove the popup, TODO: we
+                    // should show the error message
+                    Err(_) => self.cancelling = false,
                 }
-                KeyCode::Down => {
-                    if key_event.modifiers == KeyModifiers::SHIFT {
-                        self.on_shift_down();
-                    } else {
-                        self.on_down();
+            }
+            AppMessage::Key(key_event) => {
+                if !self.cancelling {
+                    match key_event.code {
+                        KeyCode::Char('c') | KeyCode::Char('C') => {
+                            self.cancelling = true;
+                            self.job_ctrl_sender
+                                .send(JobControlMessage::CancelJob(
+                                    self.slurm_jobs.items[self.selected_index].job_id.clone(),
+                                ))
+                                .unwrap();
+                        }
+                        KeyCode::Down => {
+                            if key_event.modifiers == KeyModifiers::SHIFT {
+                                self.on_shift_down();
+                            } else {
+                                self.on_down();
+                            }
+                        }
+                        KeyCode::Char('t') => {
+                            self.on_t();
+                        }
+                        KeyCode::Char('b') => {
+                            self.on_b();
+                        }
+                        KeyCode::Up => {
+                            if key_event.modifiers == KeyModifiers::SHIFT {
+                                self.on_shift_up();
+                            } else {
+                                self.on_up();
+                            }
+                        }
+                        KeyCode::Tab => {
+                            self.toggle_focus();
+                        }
+                        _ => {}
                     }
                 }
-                KeyCode::Char('t') => {
-                    self.on_t();
-                }
-                KeyCode::Char('b') => {
-                    self.on_b();
-                }
-                KeyCode::Up => {
-                    if key_event.modifiers == KeyModifiers::SHIFT {
-                        self.on_shift_up();
-                    } else {
-                        self.on_up();
-                    }
-                }
-                KeyCode::Tab => {
-                    self.toggle_focus();
-                }
-                _ => {}
-            },
+                // if cancelling still in progress, don't respond to key presses, respond to
+                // anything else
+            }
         }
         // update the job watcher
         let curr_output_file = self.get_output_file_path();
@@ -365,8 +412,11 @@ impl App {
     pub fn on_c(&mut self) {
         // cancel the currently selected job
         let job = &self.slurm_jobs.items[self.selected_index];
-
-        job.cancel();
+        let job_id = job.job_id.clone();
+        thread::spawn(move || {
+            slurm::cancel_job(&job_id);
+        });
+        //
     }
 
     pub fn toggle_focus(&mut self) {

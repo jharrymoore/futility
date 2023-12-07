@@ -1,16 +1,17 @@
 [package]
 name = "swatch"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["jharrymoore <jharrymoore@btinternet.com>"]
 description = "TUI interface for monitoring current and previous SLURM jobs"
 license = "MIT"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.75"
 chrono = "0.4.31"
 clap = { version = "4.4.8", features = ["derive"] }
 crossbeam = "0.8.2"
-crossterm = "0.26.1"
+crossterm = "0.27.0"
 fern = "0.6.2"
 humantime = "2.1.0"
 log = "0.4.20"
