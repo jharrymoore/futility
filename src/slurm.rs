@@ -115,15 +115,6 @@ impl SlurmJob {
         }
     }
 }
-pub fn cancel_job(job_id: &str) {
-    let cmd = format!("scancel {}", job_id);
-    // std::process::Command::new("bash")
-    //     .arg("-c")
-    //     .arg(cmd)
-    //     .output()
-    //     .expect("failed to execute process");
-    thread::sleep(Duration::from_secs(3));
-}
 
 #[derive(Debug)]
 pub struct SlurmJobControl {
@@ -148,6 +139,18 @@ impl SlurmJobControl {
         Ok(())
     }
 
+    fn requeue_job(&self, job: &SlurmJob) -> Result<()> {
+        let cmd = format!("sbatch {}", job.job_name);
+        // execute in the work_dir
+        let output = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(cmd)
+            .current_dir(&job.work_dir)
+            .output()
+            .expect("failed to execute process");
+        Ok(())
+    }
+
     fn run(&mut self) {
         // listen on the recv channel for a job handling instruction
         loop {
@@ -158,10 +161,13 @@ impl SlurmJobControl {
                             match msg {
                                 JobControlMessage::CancelJob(job_id) => {
                                     let rtn = self.cancel_job(&job_id);
-                                    
                                     self.send.send(AppMessage::JobCancelled(rtn)).unwrap();
                                 }
-                                                            }
+                                JobControlMessage::RequeueJob(slurm_job) => {
+                                    let rtn = self.requeue_job(&slurm_job);
+                                    self.send.send(AppMessage::JobRequeued(rtn)).unwrap();
+                                }
+                            }
                         }
                         Err(_) => {
                             // the channel has been closed

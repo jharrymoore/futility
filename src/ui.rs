@@ -166,6 +166,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ("shift+up/shift+down", "fast scroll"),
         ("esc", "cancel"),
         ("c", "cancel job"),
+        ("r", "requeue job"),
         // ("o", "toggle stdout/stderr"),
     ];
 
@@ -233,17 +234,22 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .border_type(BorderType::Rounded)
                 .style(Style::default().fg(Color::Red)),
         ).alignment(Alignment::Center);
-        //
-        // let cancel_box = Block::default()
-        //     .title(format!(
-        //         "Cancelling job: {}",
-        //         app.slurm_jobs.items[app.selected_index].job_id
-        //     ))
-        //     .title_alignment(Alignment::Center)
-        //     .borders(Borders::ALL)
-        //     .border_type(BorderType::Rounded)
-        //     .padding(Padding::new(5, 10, 1, 2))
-        //     .style(Style::default().fg(Color::Red));
+        frame.render_widget(Clear, area);
+        frame.render_widget(cancel_box, area);
+    }
+    if app.requeueing {
+        let area = centered_rect(60, 20, frame.size());
+        let text = format!(
+            "Requeueing job: {}",
+            app.slurm_jobs.items[app.selected_index].job_id
+        );
+        let cancel_box = Paragraph::new(text).block(
+            Block::default()
+                .title_alignment(Alignment::Center)
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .style(Style::default().fg(Color::Red)),
+        ).alignment(Alignment::Center);
         frame.render_widget(Clear, area);
         frame.render_widget(cancel_box, area);
     }

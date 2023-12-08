@@ -28,11 +28,13 @@ pub enum AppMessage {
     OutputFile(Result<String, FileWatcherError>),
     Key(KeyEvent),
     JobCancelled(anyhow::Result<()>),
+    JobRequeued(anyhow::Result<()>),
 }
 
 pub enum JobControlMessage {
     // pass the jobID to be cancelled
     CancelJob(String),
+    RequeueJob(SlurmJob),
 }
 
 #[derive(Debug)]
@@ -173,6 +175,7 @@ pub struct App {
     pub job_output: StatefulTable<String>,
     pub focus: Focus,
     pub cancelling: bool,
+    pub requeueing: bool,
     pub output_line_index: usize,
     receiver: Receiver<AppMessage>,
     input_receiver: Receiver<io::Result<Event>>,
@@ -192,8 +195,6 @@ impl App {
     ) -> Self {
         let (sender, receiver) = unbounded();
         // sender gets used for the job watcher and slurm watcher threads.
-        let running = true;
-        let cancelling = false;
         let slurm_jobs = StatefulTable::<SlurmJob>::default();
         let job_output = StatefulTable::<String>::default();
         let _ = JobWatcherHandle::new(
@@ -209,11 +210,12 @@ impl App {
         let _ = SlurmJobControlHandle::new(job_ctrl_send.clone(), job_ctrl_reply_recv.clone());
 
         Self {
-            running,
+            running: true,
             slurm_jobs,
             selected_index: 0,
             focus: Focus::JobList,
-            cancelling,
+            cancelling: false,
+            requeueing: false,
             output_line_index: 0,
             job_output,
             receiver,
@@ -228,8 +230,8 @@ impl App {
         loop {
             select! {
                 // it we get something from the receiver thread:
-                    recv(self.receiver) -> event => {
-                    self.handle(event.unwrap());
+                recv(self.receiver) -> event => {
+                self.handle(event.unwrap());
                 }
                 // from the input_recv channel, handle key presses
                 recv(self.input_receiver) -> input_res => {
@@ -259,6 +261,20 @@ impl App {
                                     // do something
                                     self.cancelling = false;
                                 }
+                            }
+                        }
+                        AppMessage::JobRequeued(result) => {
+                            match result {
+                                Ok(_) => {
+                                    // do something
+                                    self.requeueing = false;
+                                }
+                                Err(_) => {
+                                    // do something
+                                    self.requeueing = false;
+                                }
+
+
                             }
                         }
                         _ => {}
@@ -295,18 +311,8 @@ impl App {
                     Err(e) => vec![e.to_string()],
                 };
             }
-            AppMessage::JobCancelled(result) => {
-                match result {
-                    // remove the popup on the next render
-                    Ok(_) => self.cancelling = false,
-                    // TODO: should be be ignoring this error?
-                    // something went wrong in the cancelling step, remove the popup, TODO: we
-                    // should show the error message
-                    Err(_) => self.cancelling = false,
-                }
-            }
             AppMessage::Key(key_event) => {
-                if !self.cancelling {
+                if !self.cancelling && !self.requeueing {
                     match key_event.code {
                         KeyCode::Char('c') | KeyCode::Char('C') => {
                             self.cancelling = true;
@@ -329,6 +335,14 @@ impl App {
                         KeyCode::Char('b') => {
                             self.on_b();
                         }
+                        KeyCode::Char('r') => {
+                            self.requeueing = true;
+                            self.job_ctrl_sender
+                                .send(JobControlMessage::RequeueJob(
+                                    self.slurm_jobs.items[self.selected_index].clone(),
+                                ))
+                                .unwrap();
+                        }
                         KeyCode::Up => {
                             if key_event.modifiers == KeyModifiers::SHIFT {
                                 self.on_shift_up();
@@ -342,9 +356,11 @@ impl App {
                         _ => {}
                     }
                 }
+
                 // if cancelling still in progress, don't respond to key presses, respond to
                 // anything else
             }
+            _ => {}
         }
         // update the job watcher
         let curr_output_file = self.get_output_file_path();
@@ -409,15 +425,15 @@ impl App {
             }
         }
     }
-    pub fn on_c(&mut self) {
-        // cancel the currently selected job
-        let job = &self.slurm_jobs.items[self.selected_index];
-        let job_id = job.job_id.clone();
-        thread::spawn(move || {
-            slurm::cancel_job(&job_id);
-        });
-        //
-    }
+    // pub fn on_c(&mut self) {
+    //     // cancel the currently selected job
+    //     let job = &self.slurm_jobs.items[self.selected_index];
+    //     let job_id = job.job_id.clone();
+    //     thread::spawn(move || {
+    //         slurm::cancel_job(&job_id);
+    //     });
+    //     //
+    // }
 
     pub fn toggle_focus(&mut self) {
         match self.focus {
