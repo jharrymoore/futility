@@ -152,9 +152,9 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .add_modifier(Modifier::BOLD),
         )
         .widths(&[
-            Constraint::Percentage(20),
-            Constraint::Max(3),
-            Constraint::Percentage(70),
+            Constraint::Percentage(30),
+            Constraint::Percentage(5),
+            Constraint::Percentage(65),
         ]);
 
     frame.render_stateful_widget(table, subchunks[0], &mut app.slurm_jobs.state);
@@ -227,13 +227,15 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             "Cancelling job: {}",
             app.slurm_jobs.items[app.selected_index].job_id
         );
-        let cancel_box = Paragraph::new(text).block(
-            Block::default()
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .style(Style::default().fg(Color::Red)),
-        ).alignment(Alignment::Center);
+        let cancel_box = Paragraph::new(text)
+            .block(
+                Block::default()
+                    .title_alignment(Alignment::Center)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .style(Style::default().fg(Color::Red)),
+            )
+            .alignment(Alignment::Center);
         frame.render_widget(Clear, area);
         frame.render_widget(cancel_box, area);
     }
@@ -243,13 +245,15 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             "Requeueing job: {}",
             app.slurm_jobs.items[app.selected_index].job_id
         );
-        let cancel_box = Paragraph::new(text).block(
-            Block::default()
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .style(Style::default().fg(Color::Red)),
-        ).alignment(Alignment::Center);
+        let cancel_box = Paragraph::new(text)
+            .block(
+                Block::default()
+                    .title_alignment(Alignment::Center)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .style(Style::default().fg(Color::Red)),
+            )
+            .alignment(Alignment::Center);
         frame.render_widget(Clear, area);
         frame.render_widget(cancel_box, area);
     }

@@ -142,7 +142,7 @@ impl SlurmJobControl {
     fn requeue_job(&self, job: &SlurmJob) -> Result<()> {
         let cmd = format!("sbatch {}", job.job_name);
         // execute in the work_dir
-        let output = std::process::Command::new("bash")
+        let _= std::process::Command::new("bash")
             .arg("-c")
             .arg(cmd)
             .current_dir(&job.work_dir)

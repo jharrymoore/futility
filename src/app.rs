@@ -27,6 +27,7 @@ pub enum AppMessage {
     // Just return the string, split it later
     OutputFile(Result<String, FileWatcherError>),
     Key(KeyEvent),
+    // Mouse(MouseEvent),
     JobCancelled(anyhow::Result<()>),
     JobRequeued(anyhow::Result<()>),
 }
@@ -311,6 +312,7 @@ impl App {
                     Err(e) => vec![e.to_string()],
                 };
             }
+            // AppMessage::MouseEvent(mouse_event) => {}
             AppMessage::Key(key_event) => {
                 if !self.cancelling && !self.requeueing {
                     match key_event.code {
@@ -425,15 +427,6 @@ impl App {
             }
         }
     }
-    // pub fn on_c(&mut self) {
-    //     // cancel the currently selected job
-    //     let job = &self.slurm_jobs.items[self.selected_index];
-    //     let job_id = job.job_id.clone();
-    //     thread::spawn(move || {
-    //         slurm::cancel_job(&job_id);
-    //     });
-    //     //
-    // }
 
     pub fn toggle_focus(&mut self) {
         match self.focus {

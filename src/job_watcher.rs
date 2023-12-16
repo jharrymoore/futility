@@ -130,6 +130,8 @@ impl JobWatcher {
             "Stdout",
             "Stderr",
             "NodeList",
+            "arrayjobid",
+            "arraytaskid",
         ];
         // let squ_cmd = format! {"squeue -u {} \
         // --Format=JobID,Name,Partition,Account,SubmitTime,StartTime,EndTime,State,WorkDir,Reason,TimeLimit,TimeUsed,Stdout,Stderr --noheader",
@@ -154,8 +156,12 @@ impl JobWatcher {
         output.lines().for_each(|line| {
             let parts = line.split("##").collect::<Vec<&str>>();
             let job_id = parts[0].to_string();
-            // check if job_id already exists
-            if let Some(job) = job_list.iter_mut().find(|j| j.job_id == job_id) {
+            let array_full_jobid = format!("{}_{}", parts[15], parts[16]);
+
+            if let Some(job) = job_list
+                .iter_mut()
+                .find(|j| j.job_id == job_id || j.job_id == array_full_jobid)
+            {
                 // update the stdout/stderr from the job, only if it exists
                 let stdout = parts[12].to_string();
                 let stderr = parts[13].to_string();
