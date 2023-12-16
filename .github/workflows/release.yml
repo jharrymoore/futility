@@ -1,53 +1,72 @@
-on:
-  release:
-    types: [created]
-  push:
+name: Deploy
 
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
 
 jobs:
-  release:
-    name: release ${{ matrix.target }} (with non-required env)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+  build-and-upload:
+    name: Build and upload
+    runs-on: $\{\{ matrix.os \}\}
+
     strategy:
-      fail-fast: false
       matrix:
+        # You can add more, for any target you'd like!
         include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz
-          - target: x86_64-apple-darwin
-            archive: zip
-          - target: wasm32-wasi
-            archive: zip tar.gz
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
     steps:
-      - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Get the release version from the tag
+        shell: bash
+        run: echo "VERSION=$\{GITHUB_REF#refs/tags/\}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        # Or @nightly if you want
+        uses: dtolnay/rust-toolchain@stable
+        # Arguments to pass in
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          EXTRA_FILES: "README.md"
-          SRC_DIR: "hello"
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          PRE_BUILD: "pre_build.sh"
-          POST_BUILD: "test/post_build.sh"
-          MINIFY: "yes"
-  release_without_not_required:
-    name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        target: [x86_64-unknown-linux-musl]
-    steps:
-      - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@master
+          # Make Rust compile to our target (defined in the matrix)
+          targets: $\{\{ matrix.target \}\}
+
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          UPLOAD_MODE: none
-      - name: Checkout output
-        run: ls -laR
+          use-cross: true
+          command: build
+          args: --verbose --release --target $\{\{ matrix.target \}\}
+
+      - name: Build archive
+        shell: bash
+        run: |
+          binary_name="swatch"
+
+          dirname="$binary_name-$\{\{ env.VERSION \}\}-$\{\{ matrix.target \}\}"
+          mkdir "$dirname"
+          if [ "$\{\{ matrix.os \}\}" = "windows-latest" ]; then
+            mv "target/$\{\{ matrix.target \}\}/release/$binary_name.exe" "$dirname"
+          else
+            mv "target/$\{\{ matrix.target \}\}/release/$binary_name" "$dirname"
+          fi
+
+          if [ "$\{\{ matrix.os \}\}" = "windows-latest" ]; then
+            7z a "$dirname.zip" "$dirname"
+            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
+          else
+            tar -czf "$dirname.tar.gz" "$dirname"
+            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            $\{\{ env.ASSET \}\}
