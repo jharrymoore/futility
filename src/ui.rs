@@ -13,16 +13,22 @@ use crate::app::{App, Focus};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
-    let blue_style = Style::default().fg(Color::Blue);
+    let blue_style = Style::default().fg(Color::LightBlue);
     let light_green_style = Style::default().fg(Color::LightGreen);
     let red_style = Style::default().fg(Color::LightRed);
     let orange_style = Style::default().fg(Color::Yellow);
     let white_style = Style::default().fg(Color::White);
+    let purple_style = Style::default().fg(Color::Magenta);
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(85), Constraint::Max(3)])
         .split(frame.size());
+
+    let bottom_bar_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+        .split(chunks[1]);
 
     let subchunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -113,18 +119,30 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     frame.render_widget(details, rhs_subchunks[0]);
 
-    let mut jobs_as_rows = Vec::new();
-    for job in &app.slurm_jobs.items {
-        let status_style = job_status_map
-            .get(&job.state.as_str())
-            .unwrap_or(&red_style);
-        let row = Row::new(vec![
-            Span::styled(job.job_id.clone(), blue_style),
-            Span::styled(job.state.clone(), *status_style),
-            Span::styled(job.job_name.clone(), white_style),
-        ]);
-        jobs_as_rows.push(row);
-    }
+    let jobs_as_rows = app
+        .slurm_jobs
+        .items
+        .iter()
+        // .filter(|j| {
+        //     if app.running_only {
+        //         j.state == "R" || j.state == "PD"
+        //     } else {
+        //         true
+        //     }
+        // })
+        .fold(Vec::new(), |mut acc, job| {
+            let status_style = job_status_map
+                .get(&job.state.as_str())
+                .unwrap_or(&red_style);
+            let row = Row::new(vec![
+                Span::styled(job.job_id.clone(), blue_style),
+                Span::styled(job.state.clone(), *status_style),
+                Span::styled(job.job_name.clone(), white_style),
+            ]);
+            acc.push(row);
+            acc
+        });
+
     let (job_style, output_style) = match app.focus {
         Focus::JobList => (
             Style::default().fg(Color::Green),
@@ -160,13 +178,14 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.render_stateful_widget(table, subchunks[0], &mut app.slurm_jobs.state);
 
     let help_options = vec![
-        ("q, ctrl+c", "quit"),
+        ("q/⌃c", "quit"),
         ("⏶/⏷", "navigate"),
         ("t/b", "top/bottom"),
-        ("shift+up/shift+down", "fast scroll"),
+        ("⇧", "fast scroll"),
         ("esc", "cancel"),
         ("c", "cancel job"),
         ("r", "requeue job"),
+        ("f", "toggle job filter"),
         // ("o", "toggle stdout/stderr"),
     ];
 
@@ -191,7 +210,30 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded),
     );
-    frame.render_widget(help, chunks[1]);
+    frame.render_widget(help, bottom_bar_chunks[0]);
+
+    let mut status_info = Vec::new();
+    match app.running_only {
+        true => {
+            status_info.push(Span::styled("Filtering", purple_style));
+            status_info.push(Span::raw(": "));
+            status_info.push(Span::styled("R/PD", light_green_style));
+        }
+        false => {
+            status_info.push(Span::styled("Filtering", purple_style));
+            status_info.push(Span::raw(": "));
+            status_info.push(Span::styled("All", orange_style));
+        }
+    };
+
+    let status_info = Paragraph::new(Line::from(status_info)).block(
+        Block::default()
+            .title("Status")
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded),
+    );
+    frame.render_widget(status_info, bottom_bar_chunks[1]);
 
     let output = Table::new(
         app.job_output

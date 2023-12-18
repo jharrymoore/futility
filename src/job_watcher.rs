@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use std::path::PathBuf;
-use std::{io::BufRead, thread, time::Duration};
+use std::{thread, time::Duration};
 
-use crossbeam::channel::Sender;
+use crossbeam::channel::{Receiver, Sender};
 
 use crate::app::AppMessage;
 use crate::slurm::SlurmJob;
@@ -30,9 +30,7 @@ impl JobWatcher {
 
     fn run(&mut self) -> Self {
         loop {
-            //TODO: how to access the jobs list from outside the app?
             let job_vec = self.refresh_job_list();
-            // dbg!(&job_vec);
             self.app.send(AppMessage::JobList(job_vec)).unwrap();
             thread::sleep(self.interval);
         }
@@ -73,7 +71,6 @@ impl JobWatcher {
             if parts[1] == "_interactive" {
                 return;
             }
-            // TODO: bug - array jobs won't parse into a u32, they are jobid.0 etc
             let job_id = parts[0].to_string();
             let job_name = parts[1].to_string();
             let partition = parts[2].to_string();

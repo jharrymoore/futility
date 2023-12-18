@@ -178,6 +178,9 @@ pub struct App {
     pub cancelling: bool,
     pub requeueing: bool,
     pub output_line_index: usize,
+    // special switch for selecting only running jobs
+    pub running_only: bool,
+    raw_slurm_output: Vec<SlurmJob>,
     receiver: Receiver<AppMessage>,
     input_receiver: Receiver<io::Result<Event>>,
     job_ctrl_receiver: Receiver<AppMessage>,
@@ -195,6 +198,7 @@ impl App {
         file_refresh_rate: u64,
     ) -> Self {
         let (sender, receiver) = unbounded();
+
         // sender gets used for the job watcher and slurm watcher threads.
         let slurm_jobs = StatefulTable::<SlurmJob>::default();
         let job_output = StatefulTable::<String>::default();
@@ -212,13 +216,15 @@ impl App {
 
         Self {
             running: true,
-            slurm_jobs,
+            slurm_jobs: StatefulTable::<SlurmJob>::default(),
             selected_index: 0,
             focus: Focus::JobList,
             cancelling: false,
             requeueing: false,
             output_line_index: 0,
-            job_output,
+            running_only: false,
+            job_output: StatefulTable::<String>::default(),
+            raw_slurm_output: Vec::new(),
             receiver,
             input_receiver: input_rx,
             job_ctrl_receiver: job_ctrl_recv,
@@ -244,7 +250,6 @@ impl App {
                                  self.handle(AppMessage::Key(key_event));
                             }
                         }
-                        // resize, anything else, continue
                         Event::Resize(_,_) => {},
                         _ => {}
                     }
@@ -255,11 +260,9 @@ impl App {
                         AppMessage::JobCancelled(result) => {
                             match result {
                                 Ok(_) => {
-                                    // do something
                                     self.cancelling = false;
                                 }
                                 Err(_) => {
-                                    // do something
                                     self.cancelling = false;
                                 }
                             }
@@ -267,15 +270,11 @@ impl App {
                         AppMessage::JobRequeued(result) => {
                             match result {
                                 Ok(_) => {
-                                    // do something
                                     self.requeueing = false;
                                 }
                                 Err(_) => {
-                                    // do something
                                     self.requeueing = false;
                                 }
-
-
                             }
                         }
                         _ => {}
@@ -285,27 +284,33 @@ impl App {
             terminal.draw(|f| render(self, f)).unwrap();
         }
     }
+    fn build_job_table(&mut self) {
+        // convert the vec of slurm jobs into a stateful table, keeping track of the pointer.  This
+        // either happens when building a new table or converting between filtering methods
+        if self.running_only {
+            self.slurm_jobs.items = self
+                .raw_slurm_output
+                .iter()
+                .filter(|j| ["R", "PD"].contains(&j.state.as_str()))
+                .cloned()
+                .collect();
+        } else {
+            self.slurm_jobs.items = self.raw_slurm_output.clone();
+        }
+        if self.selected_index > self.slurm_jobs.len() - 1 {
+            self.selected_index = self.slurm_jobs.len() - 1;
+            self.slurm_jobs.state.select(Some(self.selected_index))
+        }
+    }
 
     pub fn handle(&mut self, msg: AppMessage) {
         match msg {
-            // If we have a refreshed job list, update the slurm jobs in place
             AppMessage::JobList(job_list) => {
-                match job_list {
-                    Some(job_list) => {
-                        self.slurm_jobs.items = job_list;
-                        // handle the case where the job list has shrunk since the last call, e.g.
-                        // lots of pending jobs cancelled.
-                        if self.selected_index > self.slurm_jobs.len() - 1 {
-                            self.selected_index = self.slurm_jobs.len() - 1;
-                            // now the output file will correspond the lastjob in the list, set the
-                            // state of the job list
-                            self.slurm_jobs.state.select(Some(self.selected_index))
-                        }
-                    }
-                    None => {}
+                if let Some(job_list) = job_list {
+                    self.raw_slurm_output = job_list;
+                    self.build_job_table();
                 }
             }
-            // if we have an updated output file, update the output in place
             AppMessage::OutputFile(output_file) => {
                 self.job_output.items = match output_file {
                     Ok(contents) => contents.lines().map(|s| s.to_string()).collect(),
@@ -333,6 +338,9 @@ impl App {
                         }
                         KeyCode::Char('t') => {
                             self.on_t();
+                        }
+                        KeyCode::Char('f') => {
+                            self.on_f();
                         }
                         KeyCode::Char('b') => {
                             self.on_b();
@@ -501,6 +509,10 @@ impl App {
                 self.job_output.top();
             }
         }
+    }
+    pub fn on_f(&mut self) {
+        self.running_only = !self.running_only;
+        self.build_job_table();
     }
 
     pub fn on_b(&mut self) {
