@@ -8,7 +8,7 @@ use crossbeam::{
     channel::{bounded, unbounded, Receiver, Sender},
     select,
 };
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::{backend::Backend, widgets::*, Terminal};
 use std::{error, io, path::PathBuf, thread, time::Duration};
 
@@ -27,7 +27,7 @@ pub enum AppMessage {
     // Just return the string, split it later
     OutputFile(Result<String, FileWatcherError>),
     Key(KeyEvent),
-    // Mouse(MouseEvent),
+    Mouse(MouseEventKind),
     JobCancelled(anyhow::Result<()>),
     JobRequeued(anyhow::Result<()>),
 }
@@ -250,7 +250,9 @@ impl App {
                                  self.handle(AppMessage::Key(key_event));
                             }
                         }
-                        Event::Resize(_,_) => {},
+                        Event::Mouse(mouse_event) => {
+                            self.handle(AppMessage::Mouse(mouse_event.kind));
+                        }
                         _ => {}
                     }
                 }
@@ -317,7 +319,15 @@ impl App {
                     Err(e) => vec![e.to_string()],
                 };
             }
-            // AppMessage::MouseEvent(mouse_event) => {}
+            AppMessage::Mouse(mouse_event) => match mouse_event {
+                MouseEventKind::ScrollUp => {
+                    self.on_up();
+                }
+                MouseEventKind::ScrollDown => {
+                    self.on_down();
+                }
+                _ => {}
+            },
             AppMessage::Key(key_event) => {
                 if !self.cancelling && !self.requeueing {
                     match key_event.code {
