@@ -20,9 +20,9 @@ struct CLIArgs {
     time_period: usize,
     #[clap(short, long, default_value = "")]
     user: String,
+    #[clap(short, long)]
+    running: bool,
 }
-
-
 
 fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -75,6 +75,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, args: CLIArgs) -> io::Result<
         args.time_period,
         slurm_refresh_rate,
         file_refresh_rate,
+        args.running,
     );
 
     thread::spawn(move || input_loop(input_tx));

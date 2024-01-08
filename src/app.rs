@@ -196,12 +196,11 @@ impl App {
         time_period: usize,
         slurm_refresh: u64,
         file_refresh_rate: u64,
+        running_only: bool,
     ) -> Self {
         let (sender, receiver) = unbounded();
 
         // sender gets used for the job watcher and slurm watcher threads.
-        let slurm_jobs = StatefulTable::<SlurmJob>::default();
-        let job_output = StatefulTable::<String>::default();
         let _ = JobWatcherHandle::new(
             sender.clone(),
             Duration::from_secs(slurm_refresh),
@@ -222,7 +221,7 @@ impl App {
             cancelling: false,
             requeueing: false,
             output_line_index: 0,
-            running_only: false,
+            running_only,
             job_output: StatefulTable::<String>::default(),
             raw_slurm_output: Vec::new(),
             receiver,
