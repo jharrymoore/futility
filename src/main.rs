@@ -67,7 +67,7 @@ fn main() -> AppResult<()> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, args: CLIArgs) -> io::Result<()> {
     let (input_tx, input_rx) = unbounded();
-    let slurm_refresh_rate = 10;
+    let slurm_refresh_rate = 30;
     let file_refresh_rate = 10;
     let mut app = App::new(
         input_rx,

@@ -487,16 +487,16 @@ impl App {
         match self.focus {
             Focus::JobList => {
                 // step down by at most 5 jobs
-                if self.selected_index < self.slurm_jobs.len() - 5 {
-                    self.selected_index = self.selected_index.saturating_add(5);
+                if self.selected_index < self.slurm_jobs.len() - 10 {
+                    self.selected_index = self.selected_index.saturating_add(10);
                 } else {
                     self.selected_index = self.slurm_jobs.len() - 1;
                 }
                 self.slurm_jobs.state.select(Some(self.selected_index));
             }
             Focus::Output => {
-                if self.output_line_index < self.job_output.len() - 5 {
-                    self.output_line_index = self.output_line_index.saturating_add(5);
+                if self.output_line_index < self.job_output.len() - 10 {
+                    self.output_line_index = self.output_line_index.saturating_add(10);
                 } else {
                     self.output_line_index = self.job_output.len() - 1;
                 }
