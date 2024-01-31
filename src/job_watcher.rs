@@ -56,7 +56,6 @@ impl JobWatcher {
         let output = std::process::Command::new("bash")
             .arg("-c")
             .arg(cmd)
-            // .args(&args)
             .output()
             .expect("failed to execute process");
 
@@ -90,6 +89,11 @@ impl JobWatcher {
             // we don't get stdout from sacct, use best guess for completed jobs, otherwise this
             // will be filled from squeue later.
             let (stdout, stderr) = (None, None);
+            // read the job script
+            let job_script = std::fs::read_to_string(format!("{}/{}", work_dir, job_name))
+                .ok()
+                .map(|s| s.lines().map(|s| s.to_string()).collect::<Vec<String>>())
+                .unwrap_or_else(|| vec!["No job script found".to_string()]);
             job_list.push(SlurmJob::new(
                 job_id,
                 job_name,
@@ -106,6 +110,7 @@ impl JobWatcher {
                 stdout,
                 stderr,
                 node_list,
+                job_script,
             ));
         });
 
@@ -130,18 +135,11 @@ impl JobWatcher {
             "arrayjobid",
             "arraytaskid",
         ];
-        // let squ_cmd = format! {"squeue -u {} \
-        // --Format=JobID,Name,Partition,Account,SubmitTime,StartTime,EndTime,State,WorkDir,Reason,TimeLimit,TimeUsed,Stdout,Stderr --noheader",
-        // self.user};
-
         let squ_formatted_args = squ_args.map(|s| s.to_owned() + ":##").join(",");
-        // dbg!(&squ_formatted_args);
-
         let cmd = format!(
             "squeue -u {} --noheader --array --Format {}",
             self.user, squ_formatted_args
         );
-
         let output = std::process::Command::new("bash")
             .arg("-c")
             .arg(cmd)
@@ -173,10 +171,6 @@ impl JobWatcher {
                     job.start = start_time;
                 }
             } else {
-                // create the job from scratch, it is pending or in some other state that sacct
-                // ignores
-                // if job_list.iter().find(|&j| j.job_id == job_id).is_none() {
-                // create new SlurmJob
                 let job_name = parts[1].to_string();
                 let partition = parts[2].to_string();
                 let account = parts[3].to_string();
@@ -195,6 +189,11 @@ impl JobWatcher {
                 let stderr = parts[13].to_string();
                 let node_list = parts[14].to_string();
 
+                let job_script =
+                    std::fs::read_to_string(format!("{}/slurm-{}.out", work_dir, job_id))
+                        .ok()
+                        .map(|s| s.lines().map(|s| s.to_string()).collect::<Vec<String>>())
+                        .unwrap_or_else(|| vec!["No job script found".to_string()]);
                 job_list.push(SlurmJob::new(
                     job_id,
                     job_name,
@@ -211,6 +210,7 @@ impl JobWatcher {
                     Some(stdout),
                     Some(stderr),
                     node_list,
+                    job_script,
                 ));
             };
         });

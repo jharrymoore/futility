@@ -9,7 +9,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::{App, Focus};
+use crate::app::{App, Focus, RightPanelFocus};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -123,13 +123,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .slurm_jobs
         .items
         .iter()
-        // .filter(|j| {
-        //     if app.running_only {
-        //         j.state == "R" || j.state == "PD"
-        //     } else {
-        //         true
-        //     }
-        // })
         .fold(Vec::new(), |mut acc, job| {
             let status_style = job_status_map
                 .get(&job.state.as_str())
@@ -186,6 +179,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ("c", "cancel job"),
         ("r", "requeue job"),
         ("f", "toggle job filter"),
+        ("j", "toggle output"),
         // ("o", "toggle stdout/stderr"),
     ];
 
@@ -225,6 +219,20 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             status_info.push(Span::styled("All", orange_style));
         }
     };
+    match app.right_panel_focus {
+        RightPanelFocus::Output => {
+            status_info.push(Span::raw(" | "));
+            status_info.push(Span::styled("Output", purple_style));
+            status_info.push(Span::raw(": "));
+            status_info.push(Span::styled("Ouptut", light_green_style));
+        }
+        RightPanelFocus::JobScript => {
+            status_info.push(Span::raw(" | "));
+            status_info.push(Span::styled("Output", purple_style));
+            status_info.push(Span::raw(": "));
+            status_info.push(Span::styled("Jobscript", orange_style));
+        }
+    }
 
     let status_info = Paragraph::new(Line::from(status_info)).block(
         Block::default()
@@ -235,36 +243,64 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     );
     frame.render_widget(status_info, bottom_bar_chunks[1]);
 
-    let output = Table::new(
-        app.job_output
-            .items
-            .iter()
-            .fold(Vec::new(), |mut acc, line| {
+    let output = match app.right_panel_focus {
+        RightPanelFocus::Output => Table::new(app.job_output.items.iter().fold(
+            Vec::new(),
+            |mut acc, line| {
                 acc.push(Row::new(vec![Span::styled(line, white_style)]));
                 acc
-            }),
-    )
-    .widths(&[Constraint::Percentage(100)])
-    .block(
-        Block::default()
-            .title("Output")
-            .title_alignment(Alignment::Left)
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .style(output_style),
-    )
-    .highlight_style(
-        Style::default()
-            .bg(Color::Blue)
-            .fg(Color::Black)
-            .add_modifier(Modifier::BOLD),
-    );
-
-    frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.job_output.state);
+            },
+        ))
+        .widths(&[Constraint::Percentage(100)])
+        .block(
+            Block::default()
+                .title("Output")
+                .title_alignment(Alignment::Left)
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .style(output_style),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::Blue)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        ),
+        RightPanelFocus::JobScript => Table::new(app.job_script.items.iter().fold(
+            Vec::new(),
+            |mut acc, line| {
+                acc.push(Row::new(vec![Span::styled(line, white_style)]));
+                acc
+            },
+        ))
+        .widths(&[Constraint::Percentage(100)])
+        .block(
+            Block::default()
+                .title("Job Script")
+                .title_alignment(Alignment::Left)
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .style(output_style),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::Blue)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        ),
+    };
+    match app.right_panel_focus {
+        RightPanelFocus::JobScript => {
+            frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.job_script.state);
+        }
+        RightPanelFocus::Output => {
+            frame.render_stateful_widget(output, rhs_subchunks[1], &mut app.job_output.state);
+        }
+    };
 
     // if we are in the process of cancelling a job, render a central box over the top,
     if app.cancelling {
-        let area = centered_rect(60, 20, frame.size());
+        let area = centered_rect(30, 10, frame.size());
         let text = format!(
             "Cancelling job: {}",
             app.slurm_jobs.items[app.selected_index].job_id
@@ -282,7 +318,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         frame.render_widget(cancel_box, area);
     }
     if app.requeueing {
-        let area = centered_rect(60, 20, frame.size());
+        let area = centered_rect(30, 10, frame.size());
         let text = format!(
             "Requeueing job: {}",
             app.slurm_jobs.items[app.selected_index].job_id

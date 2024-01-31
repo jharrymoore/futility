@@ -21,6 +21,12 @@ pub enum Focus {
     Output,
 }
 
+#[derive(Debug)]
+pub enum RightPanelFocus {
+    Output,
+    JobScript,
+}
+
 pub enum AppMessage {
     // if job list is not empty, return the vec, otherwise None
     JobList(Option<Vec<SlurmJob>>),
@@ -174,7 +180,9 @@ pub struct App {
     pub slurm_jobs: StatefulTable<SlurmJob>,
     pub selected_index: usize,
     pub job_output: StatefulTable<String>,
+    pub job_script: StatefulTable<String>,
     pub focus: Focus,
+    pub right_panel_focus: RightPanelFocus,
     pub cancelling: bool,
     pub requeueing: bool,
     pub output_line_index: usize,
@@ -218,11 +226,13 @@ impl App {
             slurm_jobs: StatefulTable::<SlurmJob>::default(),
             selected_index: 0,
             focus: Focus::JobList,
+            right_panel_focus: RightPanelFocus::Output,
             cancelling: false,
             requeueing: false,
             output_line_index: 0,
             running_only,
             job_output: StatefulTable::<String>::default(),
+            job_script: StatefulTable::<String>::default(),
             raw_slurm_output: Vec::new(),
             receiver,
             input_receiver: input_rx,
@@ -338,6 +348,9 @@ impl App {
                                 ))
                                 .unwrap();
                         }
+                        KeyCode::Char('j') => {
+                            self.on_j();
+                        }
                         KeyCode::Down => {
                             if key_event.modifiers == KeyModifiers::SHIFT {
                                 self.on_shift_down();
@@ -375,15 +388,22 @@ impl App {
                         _ => {}
                     }
                 }
-
-                // if cancelling still in progress, don't respond to key presses, respond to
-                // anything else
             }
             _ => {}
         }
         // update the job watcher
         let curr_output_file = self.get_output_file_path();
         self.file_watcher_handle.set_file_path(curr_output_file);
+        // update the job script table to point at the currently selected job
+        self.get_job_script();
+    }
+
+    pub fn get_job_script(&mut self) {
+        let current_job = self.slurm_jobs.items.get(self.selected_index);
+        self.job_script.items = match current_job {
+            Some(job) => job.job_script.clone(),
+            None => vec!["No job script found".to_string()],
+        };
     }
 
     // TODO: this function is to go now§
@@ -417,11 +437,21 @@ impl App {
                 }
             }
             Focus::Output => {
-                // now this should just scroll up on the output text
-                self.job_output.previous();
-                if self.output_line_index > 0 {
-                    self.output_line_index = self.output_line_index.saturating_sub(1);
+                match self.right_panel_focus {
+                    RightPanelFocus::Output => {
+                        self.job_output.previous();
+                        if self.output_line_index > 0 {
+                            self.output_line_index = self.output_line_index.saturating_sub(1);
+                        }
+                    }
+                    RightPanelFocus::JobScript => {
+                        self.job_script.previous();
+                        if self.output_line_index > 0 {
+                            self.output_line_index = self.output_line_index.saturating_sub(1);
+                        }
+                    }
                 }
+                // now this should just scroll up on the output text
             }
         }
     }
@@ -436,11 +466,25 @@ impl App {
                 }
             }
             Focus::Output => {
-                // now this should just scroll down on the output text
-                self.job_output.next();
-                if self.output_line_index < self.job_output.len() - 1 {
-                    self.output_line_index = self.output_line_index.saturating_add(1);
+                match self.right_panel_focus {
+                    RightPanelFocus::Output => {
+                        self.job_output.next();
+                        if self.output_line_index > 0 {
+                            self.output_line_index = self.output_line_index.saturating_add(1);
+                        }
+                    }
+                    RightPanelFocus::JobScript => {
+                        self.job_script.next();
+                        if self.output_line_index > 0 {
+                            self.output_line_index = self.output_line_index.saturating_add(1);
+                        }
+                    }
                 }
+                // now this should just scroll down on the output text
+                // self.job_output.next();
+                // if self.output_line_index < self.job_output.len() - 1 {
+                //     self.output_line_index = self.output_line_index.saturating_add(1);
+                // }
             }
         }
     }
@@ -470,15 +514,37 @@ impl App {
                 self.selected_index = self.selected_index.saturating_sub(10);
             }
             Focus::Output => {
-                // move up 10 lines
-                self.job_output.state.select(Some(
-                    self.job_output
-                        .state
-                        .selected()
-                        .unwrap_or(0)
-                        .saturating_sub(10),
-                ));
+                match self.right_panel_focus {
+                    RightPanelFocus::Output => {
+                        self.job_output.state.select(Some(
+                            self.job_output
+                                .state
+                                .selected()
+                                .unwrap_or(0)
+                                .saturating_sub(10),
+                        ));
+                    }
+                    RightPanelFocus::JobScript => {
+                        self.job_script.state.select(Some(
+                            self.job_script
+                                .state
+                                .selected()
+                                .unwrap_or(0)
+                                .saturating_sub(10),
+                        ));
+                    }
+                }
                 self.output_line_index = self.output_line_index.saturating_sub(10);
+
+                // // move up 10 lines
+                // self.job_output.state.select(Some(
+                //     self.job_output
+                //         .state
+                //         .selected()
+                //         .unwrap_or(0)
+                //         .saturating_sub(10),
+                // ));
+                // self.output_line_index = self.output_line_index.saturating_sub(10);
             }
         }
     }
@@ -486,7 +552,6 @@ impl App {
     pub fn on_shift_down(&mut self) {
         match self.focus {
             Focus::JobList => {
-                // step down by at most 5 jobs
                 if self.selected_index < self.slurm_jobs.len() - 10 {
                     self.selected_index = self.selected_index.saturating_add(10);
                 } else {
@@ -495,13 +560,26 @@ impl App {
                 self.slurm_jobs.state.select(Some(self.selected_index));
             }
             Focus::Output => {
-                if self.output_line_index < self.job_output.len() - 10 {
-                    self.output_line_index = self.output_line_index.saturating_add(10);
-                } else {
-                    self.output_line_index = self.job_output.len() - 1;
+                match self.right_panel_focus {
+                    RightPanelFocus::Output => {
+                        if self.output_line_index < self.job_output.len() - 10 {
+                            self.output_line_index = self.output_line_index.saturating_add(10);
+                        } else {
+                            self.output_line_index = self.job_output.len() - 1;
+                        }
+                        // select the new line
+                        self.job_output.state.select(Some(self.output_line_index));
+                    }
+                    RightPanelFocus::JobScript => {
+                        if self.output_line_index < self.job_script.len() - 10 {
+                            self.output_line_index = self.output_line_index.saturating_add(10);
+                        } else {
+                            self.output_line_index = self.job_script.len() - 1;
+                        }
+                        // select the new line
+                        self.job_script.state.select(Some(self.output_line_index));
+                    }
                 }
-                // select the new line
-                self.job_output.state.select(Some(self.output_line_index));
             }
         }
     }
@@ -513,11 +591,28 @@ impl App {
                 // self.get_output_file_contents();
                 self.slurm_jobs.top()
             }
-            Focus::Output => {
-                self.output_line_index = 0;
-                self.job_output.top();
+            Focus::Output => match self.right_panel_focus {
+                RightPanelFocus::Output => {
+                    self.output_line_index = 0;
+                    self.job_output.top();
+                }
+                RightPanelFocus::JobScript => {
+                    self.output_line_index = 0;
+                    self.job_script.top();
+                }
+            },
+        }
+    }
+    pub fn on_j(&mut self) {
+        match self.right_panel_focus {
+            RightPanelFocus::Output => {
+                self.right_panel_focus = RightPanelFocus::JobScript;
+            }
+            RightPanelFocus::JobScript => {
+                self.right_panel_focus = RightPanelFocus::Output;
             }
         }
+        self.output_line_index = 1;
     }
     pub fn on_f(&mut self) {
         self.running_only = !self.running_only;
@@ -531,10 +626,16 @@ impl App {
                 self.slurm_jobs.bottom();
                 // self.get_output_file_contents();
             }
-            Focus::Output => {
-                self.output_line_index = self.job_output.len() - 1;
-                self.job_output.bottom();
-            }
+            Focus::Output => match self.right_panel_focus {
+                RightPanelFocus::Output => {
+                    self.output_line_index = self.job_output.len() - 1;
+                    self.job_output.bottom();
+                }
+                RightPanelFocus::JobScript => {
+                    self.output_line_index = self.job_script.len() - 1;
+                    self.job_script.bottom();
+                }
+            },
         }
     }
 }

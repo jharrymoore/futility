@@ -26,6 +26,7 @@ pub struct SlurmJob {
     pub stdout: Option<String>,
     pub stderr: Option<String>,
     pub node_list: String,
+    pub job_script: Vec<String>,
 }
 
 impl SlurmJob {
@@ -45,6 +46,7 @@ impl SlurmJob {
         stdout: Option<String>,
         stderr: Option<String>,
         node_list: String,
+        job_script: Vec<String>,
     ) -> SlurmJob {
         SlurmJob {
             job_id,
@@ -62,6 +64,7 @@ impl SlurmJob {
             stdout,
             stderr,
             node_list,
+            job_script,
         }
     }
 }
