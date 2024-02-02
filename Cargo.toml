@@ -1,6 +1,6 @@
 [package]
 name = "swatch"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["jharrymoore <jharrymoore@btinternet.com>"]
 description = "TUI interface for monitoring current and previous SLURM jobs"
 license = "MIT"
