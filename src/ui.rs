@@ -107,15 +107,17 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ]));
     }
 
-    let details = Table::new(job_details)
-        .block(
-            Block::default()
-                .title("Job details")
-                .title_alignment(Alignment::Left)
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded),
-        )
-        .widths(&[Constraint::Length(10), Constraint::Percentage(95)]);
+    let details = Table::new(
+        job_details,
+        &[Constraint::Length(10), Constraint::Percentage(95)],
+    )
+    .block(
+        Block::default()
+            .title("Job details")
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded),
+    );
 
     frame.render_widget(details, rhs_subchunks[0]);
 
@@ -147,26 +149,28 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ),
     };
 
-    let table = Table::new(jobs_as_rows)
-        .block(
-            Block::default()
-                .title("SLURM Job List")
-                .title_alignment(Alignment::Left)
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .style(job_style),
-        )
-        .highlight_style(
-            Style::default()
-                .bg(Color::Green)
-                .fg(Color::Black)
-                .add_modifier(Modifier::BOLD),
-        )
-        .widths(&[
+    let table = Table::new(
+        jobs_as_rows,
+        &[
             Constraint::Percentage(30),
             Constraint::Percentage(5),
             Constraint::Percentage(65),
-        ]);
+        ],
+    )
+    .block(
+        Block::default()
+            .title("SLURM Job List")
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .style(job_style),
+    )
+    .highlight_style(
+        Style::default()
+            .bg(Color::Green)
+            .fg(Color::Black)
+            .add_modifier(Modifier::BOLD),
+    );
 
     frame.render_stateful_widget(table, subchunks[0], &mut app.slurm_jobs.state);
 
@@ -244,14 +248,16 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.render_widget(status_info, bottom_bar_chunks[1]);
 
     let output = match app.right_panel_focus {
-        RightPanelFocus::Output => Table::new(app.job_output.items.iter().fold(
-            Vec::new(),
-            |mut acc, line| {
-                acc.push(Row::new(vec![Span::styled(line, white_style)]));
-                acc
-            },
-        ))
-        .widths(&[Constraint::Percentage(100)])
+        RightPanelFocus::Output => Table::new(
+            app.job_output
+                .items
+                .iter()
+                .fold(Vec::new(), |mut acc, line| {
+                    acc.push(Row::new(vec![Span::styled(line, white_style)]));
+                    acc
+                }),
+            &[Constraint::Percentage(100)],
+        )
         .block(
             Block::default()
                 .title("Output")
@@ -266,14 +272,16 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .fg(Color::Black)
                 .add_modifier(Modifier::BOLD),
         ),
-        RightPanelFocus::JobScript => Table::new(app.job_script.items.iter().fold(
-            Vec::new(),
-            |mut acc, line| {
-                acc.push(Row::new(vec![Span::styled(line, white_style)]));
-                acc
-            },
-        ))
-        .widths(&[Constraint::Percentage(100)])
+        RightPanelFocus::JobScript => Table::new(
+            app.job_script
+                .items
+                .iter()
+                .fold(Vec::new(), |mut acc, line| {
+                    acc.push(Row::new(vec![Span::styled(line, white_style)]));
+                    acc
+                }),
+            &[Constraint::Percentage(100)],
+        )
         .block(
             Block::default()
                 .title("Job Script")

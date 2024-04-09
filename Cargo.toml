@@ -1,8 +1,8 @@
 [package]
 name = "swatch"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["jharrymoore <jharrymoore@btinternet.com>"]
-description = "TUI interface for monitoring current and previous SLURM jobs"
+description = "A TUI to manage and monitor your SLURM jobs"
 license = "MIT"
 edition = "2021"
 
@@ -16,7 +16,7 @@ fern = "0.6.2"
 humantime = "2.1.0"
 log = "0.4.20"
 notify = "6.1.1"
-ratatui = "0.24.0"
+ratatui = "0.26.1"
 
 
 [[bin]]
