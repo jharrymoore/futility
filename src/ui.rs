@@ -5,7 +5,7 @@ use ratatui::{
     prelude::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Row, Table},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Row, Table},
     Frame,
 };
 
@@ -22,7 +22,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(85), Constraint::Max(3)])
+        .constraints([Constraint::Max(97), Constraint::Max(3)])
         .split(frame.size());
 
     let bottom_bar_chunks = Layout::default()
@@ -38,9 +38,9 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let rhs_subchunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(11),
+            Constraint::Max(11),
             // Constraint::Length(3),
-            Constraint::Percentage(60),
+            Constraint::Max(86),
         ])
         .split(subchunks[1]);
 
