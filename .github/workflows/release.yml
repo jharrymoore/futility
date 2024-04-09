@@ -136,7 +136,6 @@ jobs:
       contents: write
     steps:
       - name: Setup | Artifacts
-        uses: actions/download-artifact@v3
 
         run: for file in swatch-*/swatch-*; do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
 
