@@ -1,7 +1,12 @@
 # swatch
 
-A TUI for keeping track of jobs submitted to a SLURM cluster.  
+A TUI to manage and monitor your SLURM jobs.  
 
+
+## Installation
+```
+cargo install swatch
+```
 
 ## Usage
 
